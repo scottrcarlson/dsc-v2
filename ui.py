@@ -62,7 +62,8 @@ class UI(Thread):
         print "Pressed ENTER Key."
         #if not self.display.create_msg("Test Pretext Msg"):
             #self.display.key_enter()
-        self.display.main_menu()
+        if not self.display.main_menu():
+            self.display.key_enter()
 
     def key_back(self, channel):
         self.idle = False
