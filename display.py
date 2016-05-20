@@ -42,10 +42,11 @@ class Display(Thread):
         Thread.__init__(self)
         self.event = Event()
         self.reset()
+	# TODO: gracefully handle exception when OLED absent
         self.device = sh1106(port=1, address=0x3C)
         self.font = ImageFont.load_default()
         self.msg = ""
-
+        
         #Modes
         # 0 -- Lock Screen
         # 1 -- Message Composition

@@ -9,6 +9,7 @@ from yubikey import Yubikey
 import iodef
 from display import Display
 from ui import UI
+from gps import Gps
 
 version = "v0.1.0" 
 isRunning = True            #Main Thread Control Bit 
@@ -23,6 +24,7 @@ def signal_handler(signal, frame): #nicely shut things down
     radio.stop()
     yubikey.stop()    
     display.stop()
+    gps.stop()
     ui.stop()
     global isRunning
     isRunning = False
@@ -44,6 +46,9 @@ if __name__ == "__main__":
 
     yubikey = Yubikey()
     yubikey.start()
+
+    gps = Gps()
+    gps.start()
 
     display = Display()
     display.start()

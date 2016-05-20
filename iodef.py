@@ -4,9 +4,13 @@
 #----------------------------
 import RPi.GPIO as GPIO
 
-#Pin Definitions
-PIN_RADIO_IRQ   = 7
-PIN_RADIO_RESET = 11
+# Pin Definitions
+
+# Reference: Raspberry Pi Zero and LL-RXR-27 radio Pinout Diagrams: https://docs.google.com/document/d/1CCm--WU5d0TojT0b95wAke5KnvuqtFVSWwcs-sNXcJo
+# Pins 3 and 5 are used for I2C communication with the OLED and RTC
+# Pins 8 and 10 are used for serial communication with the radio
+PIN_RADIO_IRQ   = 7  #
+PIN_RADIO_RESET = 11 # 
 PIN_OLED_RESET  = 40
 PIN_KEY_ENTER   = 37
 PIN_KEY_BACK    = 38
