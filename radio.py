@@ -40,11 +40,10 @@ class Radio(Thread):
             print "Some Address from a file:", self.address
 
 
-        print "Initializing LoRa Radio Thread."
+        print "Initialized Radio Thread."
 
 
     def run(self):
-        print "Startings LoRa Radio Thread."
         self.event.wait(1)
         while not self.event.is_set():
             
@@ -63,7 +62,7 @@ class Radio(Thread):
 
                 
     def stop(self):
-        print "Stopping LoRa Radio Thread."
+        print "Stopping Radio Thread."
         self.event.set()
 
 

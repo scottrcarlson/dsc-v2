@@ -19,26 +19,53 @@ m_MAIN_MENU = 4
 
 main_menu = {
     0:"Send New Msg",
-    1:"View Received",
-    2:"View Sent",
-    3:"Add a Friend",
-    4:"View Outbound",
-    5:"Initialize Keys",
-    6:"System Reset",
+    1:"View Msgs",
+    2:"Add a Friend",
+    3:"Network Stats",
+    4:"Initialize Keys",
+    5:"System Reset",
 }
 
-pretext_msgs = [
-    "Where are you?",
-    "Where/When do you want to meet?",
-    "I am ",
-    "Meet you at ",
-    "I'll be there in ",
-    "I'm hungry, anyone want to grab some food?",
-    "Let's grab some beers",
-    "I'm at Bally/Paris",
-    "I'm in SkyTalks",
-    "I'm in 101 Presentation",
-    "I'm in hotel room, down time."
+compose_menu = {
+    0:"Pretext Msg",
+    1:"Empty Msg"
+}
+
+recipient_menu = {      #This will be generated based on friend list (keys exchanged)
+    0:"Everyone",
+    1:"Person_1",
+    1:"Person_2",
+    1:"Person_3",
+    1:"Person_4"
+}
+
+view_msg_thread_menu = {
+    0:"(*)Everyone",
+    1:"Doris",
+    2:"(*)Boris",
+}
+
+pretext_menu = {
+    0:"Where are you?",
+    1:"Where/When do you want to meet?",
+    2:"I am ",
+    3:"Meet you at ",
+    4:"I'll be there in ",
+    5:"I'm hungry, anyone want to grab some food?",
+    6:"Let's grab some beers",
+    7:"I'm at Bally/Paris",
+    8:"I'm in SkyTalks",
+    9:"I'm in 101 Presentation",
+    10:"I'm in hotel room, down time."
+}
+
+test_broadcast_thread_msg = [
+    "Doris 2016.08.07 13:00:",
+    "Hello World",
+    "Boris 2016.08.07 13:02",
+    "Hello World!",
+    "Bob 2016.08.07 13.05",
+    "yo!"
 ]
 
 keyboard = "abcdefghijklmnopqrstuvwxyz1234567890!?$%.-"
@@ -66,10 +93,9 @@ class Display(Thread):
         self.screen_row_size = 5
         self.viz_min = 0
         self.viz_max = self.screen_row_size
-        print "Initializing OLED Display Thread."
+        print "Initialized OLED Display Thread."
 
     def run(self):
-        print "Startings OLED Display Thread."
         self.event.wait(1)
         while not self.event.is_set():
             #------[IDLE]--------------------------------------------------------------------------
@@ -245,7 +271,7 @@ class Display(Thread):
             if self.row_index >= 0:
                 index = (self.row_index * 21) + self.col_index
                 self.msg = self.msg + keyboard[index:index+1]
-                print self.msg
+                #print self.msg
             else:
                 if self.col_index == 0:
                     print "Encrypt/Send Msg: " + self.msg

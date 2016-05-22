@@ -29,24 +29,25 @@ class UI(Thread):
         self.display.lock()
 
         self.idle = False
-        print "Initializing UI Thread."
+        print "Initialized UI Thread."
 
     def run(self):
-        print "Startings UI Thread."
         self.event.wait(1)
         while not self.event.is_set():
             #print "Handling UI Stuff"
-            self.event.wait(15)
+            self.event.wait(5)
             if self.idle:
                 self.display.idle()
                 self.idle = False
             else:
                 self.idle = True
+        print "ui thread should be dead"
 
     def stop(self):
         print "Stopping UI Thread."
         self.yubikey.stop()
         self.display.stop()
+        self.event.wait(2)
         self.event.set()
 
     def key_up(self, channel):

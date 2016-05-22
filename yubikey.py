@@ -52,7 +52,6 @@ class Yubikey(Thread):
         print "Initialized Yubikey Thread Thread."
 
     def run(self):
-        print "Startings Yubikey Thread Thread."
         self.event.wait(1)
 
         while not self.event.is_set():
@@ -69,6 +68,11 @@ class Yubikey(Thread):
                 #print "Yubikey Inserted."
                 self.yubikey_status(True)
                 self.event.wait(0.25)
+                if self.dev == None:
+                    self.dev = InputDevice('/dev/input/event0')
+                self.dev.grab()
+                x = ''
+
             elif self.key_present == True and is_key_present == False:
                 #print "Yubikey Removed."
                 self.yubikey_status(False)
@@ -78,13 +82,12 @@ class Yubikey(Thread):
 
             #------[Check for Yubikey Input]---------------
             if self.key_present:
-                if self.dev == None:
-                    self.dev = InputDevice('/dev/input/event0')
-
-                x = ''
-                self.dev.grab()
                 try:
                     for event in self.dev.read_loop():
+                    #if True:
+                    #???
+                    #while event = self.dev.read_one() != None:
+                        #event = self.dev.read_one()
                         if event.type == ecodes.EV_KEY:
                             data = categorize(event)
                             if data.scancode == 42:
@@ -109,8 +112,6 @@ class Yubikey(Thread):
                 except:
                     pass
             self.event.wait(1)
-
     def stop(self):
         print "Stopping Yubikey Thread."
-        #self.mainloop.quit()
         self.event.set()
