@@ -6,18 +6,28 @@ from time import sleep
 import RPi.GPIO as GPIO
 import iodef
 from threading import *
+from yubikey import Yubikey
+from display import Display
 
 class UI(Thread):
-    def __init__(self,display):
+    def __init__(self):
         Thread.__init__(self)
         self.event = Event()
+
         GPIO.add_event_detect(iodef.PIN_KEY_UP, GPIO.FALLING, callback=self.key_up, bouncetime=150)
         GPIO.add_event_detect(iodef.PIN_KEY_DOWN, GPIO.FALLING, callback=self.key_down, bouncetime=150)
         GPIO.add_event_detect(iodef.PIN_KEY_LEFT, GPIO.FALLING, callback=self.key_left, bouncetime=150)
         GPIO.add_event_detect(iodef.PIN_KEY_RIGHT, GPIO.FALLING, callback=self.key_right, bouncetime=150)
         GPIO.add_event_detect(iodef.PIN_KEY_ENTER, GPIO.FALLING, callback=self.key_enter, bouncetime=150)
         GPIO.add_event_detect(iodef.PIN_KEY_BACK, GPIO.FALLING, callback=self.key_back, bouncetime=150)
-        self.display = display
+
+        self.yubikey = Yubikey(self.yubikey_status)
+        self.yubikey.start()
+
+        self.display = Display()
+        self.display.start()
+        self.display.lock()
+
         self.idle = False
         print "Initializing UI Thread."
 
@@ -25,7 +35,7 @@ class UI(Thread):
         print "Startings UI Thread."
         self.event.wait(1)
         while not self.event.is_set():
-            print "Handling UI Stuff"
+            #print "Handling UI Stuff"
             self.event.wait(15)
             if self.idle:
                 self.display.idle()
@@ -35,6 +45,8 @@ class UI(Thread):
 
     def stop(self):
         print "Stopping UI Thread."
+        self.yubikey.stop()
+        self.display.stop()
         self.event.set()
 
     def key_up(self, channel):
@@ -60,13 +72,18 @@ class UI(Thread):
     def key_enter(self, channel):
         self.idle = False
         print "Pressed ENTER Key."
-        #if not self.display.create_msg("Test Pretext Msg"):
-            #self.display.key_enter()
-        if not self.display.main_menu():
-            self.display.key_enter()
+        self.display.key_enter()
 
     def key_back(self, channel):
         self.idle = False
         print "Pressed BACK Key."
-        #self.display.lock_screen()
         self.display.key_back()
+
+    def yubikey_status(self,is_present):
+        if is_present:
+            print "Yubikey Inserted"
+            self.display.auth()
+        else:
+            #Perform System Wipe (Lock keys, wipe any user data from memory)
+            self.display.lock()
+            print "Yubikey Removed"

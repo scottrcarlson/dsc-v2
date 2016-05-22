@@ -10,6 +10,12 @@ import RPi.GPIO as GPIO
 import iodef
 from threading import *
 
+#DISPLAY MODES
+m_IDLE = 0
+m_LOCK = 1
+m_AUTH = 2
+m_COMPOSE = 3
+m_MAIN_MENU = 4
 
 main_menu = {
     0:"Send New Msg",
@@ -50,7 +56,7 @@ class Display(Thread):
         #Modes
         # 0 -- Lock Screen
         # 1 -- Message Composition
-        self.mode = 0 
+        self.mode = m_IDLE 
 
         self.row_index = 0
         self.col_index = 0
@@ -67,21 +73,30 @@ class Display(Thread):
         self.event.wait(1)
         while not self.event.is_set():
             #------[IDLE]--------------------------------------------------------------------------
-            if self.mode == 0:
+            if self.mode == m_IDLE:
                 with canvas(self.device) as draw:
                     pass        
             #------[LOCK SCREEN]-------------------------------------------------------------------       
-            if self.mode == 1:
+            if self.mode == m_LOCK:
                 with canvas(self.device) as draw:
                     logo = Image.open('/home/pi/dsc.png')
                     draw.bitmap((0, 20), logo, fill=1)
                     draw.text((0, 52), '5', font=self.font, fill=255)
-                    draw.text((105, 52), 'SYNC', font=self.font, fill=255)
+                    #draw.text((105, 52), 'SYNC', font=self.font, fill=255)
                     draw.text((6, 10), 'dirt   simple  comms', font=self.font, fill=255)
                     draw.text((35, 52), 'insert key', font=self.font, fill=255)
+            #------[AUTH SCREEN]-------------------------------------------------------------------       
+            if self.mode == m_AUTH:
+                with canvas(self.device) as draw:
+                    logo = Image.open('/home/pi/dsc.png')
+                    draw.bitmap((0, 20), logo, fill=1)
+                    draw.text((0, 52), '5', font=self.font, fill=255)
+                    #draw.text((105, 52), 'SYNC', font=self.font, fill=255)
+                    draw.text((6, 10), 'dirt   simple  comms', font=self.font, fill=255)
+                    draw.text((25, 52), 'enter password', font=self.font, fill=255)
 
             #------[MSG COMPOSITION]----------------------------------------------------------------
-            elif self.mode == 2:
+            elif self.mode == m_COMPOSE:
                 self.row = 51 + (self.row_index * self.row_height)
                 self.col = self.char_space * self.col_index
                 with canvas(self.device) as draw:
@@ -103,7 +118,7 @@ class Display(Thread):
                             draw.text((0, 28), ' SEND  CLEAR <CANCEL>', font=self.font, fill=255)
 
             #------[MAIN MENU]----------------------------------------------------------------------
-            elif self.mode == 3:
+            elif self.mode == m_MAIN_MENU:
                 with canvas(self.device) as draw:
                     draw.line((121,3,124,0), fill=255)                                         
                     draw.line((124,0,127,3), fill=255)
@@ -113,7 +128,7 @@ class Display(Thread):
                     if (self.row_index >= self.viz_max):
                         self.viz_max = self.row_index + 1
                         self.viz_min = self.viz_max - self.screen_row_size
-                    print "Row Index: ", self.row_index, " Viz_Min:", self.viz_min, " Viz_Max:", self.viz_max
+                    #print "Row Index: ", self.row_index, " Viz_Min:", self.viz_min, " Viz_Max:", self.viz_max
                     for i in range(self.viz_min,self.viz_max):
                         draw.text((20, 4+( (i-self.viz_min) * self.row_height) ), main_menu[i], font=self.font, fill=255)
                     #draw.text((20, 16), main_menu[1], font=self.font, fill=255)
@@ -144,34 +159,33 @@ class Display(Thread):
         GPIO.output(iodef.PIN_OLED_RESET, True)
 
     def idle(self):
-        if self.mode == 1:
-            self.mode = 0
+        if self.mode == m_LOCK:
+            self.mode = m_IDLE
 
-    def lock_screen(self):
-        self.mode = 1
+    def lock(self):  #Key removed, clear any relevant data
+        self.msg = "" 
+        self.mode = m_LOCK
 
+    def auth(self): 
+        self.mode = m_AUTH
 
     def main_menu(self):
-        if self.mode != 3:
-            self.row_index = 0
-            self.mode = 3
-            return True
-        else:
-            return False
+        self.row_index = 0
+        self.mode = m_MAIN_MENU
 
     def create_msg(self, msg):
-        if self.mode != 2 and self.mode != 0:
+        if self.mode != m_COMPOSE and self.mode != m_IDLE:
             self.msg = msg
-            self.mode = 2
+            self.mode = m_COMPOSE
             self.row_index = 0
             self.col_index = 0
             return True
         return False
 
     def key_right(self):
-        if self.mode == 0:
-            self.mode = 1
-        elif self.mode == 2:
+        if self.mode == m_IDLE:
+            self.mode = m_LOCK
+        elif self.mode == m_COMPOSE:
             self.col_index += 1
             if self.row_index == -1:
                 if self.col_index > 2:
@@ -184,9 +198,9 @@ class Display(Thread):
                     self.row_index = 0
 
     def key_left(self):
-        if self.mode == 0:
-            self.mode = 1
-        elif self.mode == 2:
+        if self.mode == m_IDLE:
+            self.mode = m_LOCK
+        elif self.mode == m_COMPOSE:
             self.col_index -= 1
             if self.row_index == -1:
                 if self.col_index < 0:
@@ -199,35 +213,35 @@ class Display(Thread):
                     self.row_index = 1
 
     def key_up(self):
-        if self.mode == 0:
-            self.mode = 1
-        elif self.mode == 2:
+        if self.mode == m_IDLE:
+            self.mode = m_LOCK
+        elif self.mode == m_COMPOSE:
             if self.row_index == 1:
                 self.row_index = 0
             else:
                 self.row_index = -1
                 self.col_index = 0
-        elif self.mode == 3:
+        elif self.mode == m_MAIN_MENU:
             self.row_index -= 1
             if self.row_index < 0:
                 self.row_index = 0
 
     def key_down(self):
-        if self.mode == 0:
-            self.mode = 1
-        elif self.mode == 2:
+        if self.mode == m_IDLE:
+            self.mode = m_LOCK
+        elif self.mode == m_COMPOSE:
             self.row_index += 1
             if self.row_index > 1:
                 self.row_index = 1
-        elif self.mode == 3:
+        elif self.mode == m_MAIN_MENU:
             self.row_index += 1
             if self.row_index >= len(main_menu):
                 self.row_index = len(main_menu) -1
 
     def key_enter(self):
-        if self.mode == 0:
-            self.mode = 1
-        elif self.mode == 2:
+        if self.mode == m_IDLE:
+            self.mode = m_LOCK
+        elif self.mode == m_COMPOSE:
             if self.row_index >= 0:
                 index = (self.row_index * 21) + self.col_index
                 self.msg = self.msg + keyboard[index:index+1]
@@ -239,12 +253,16 @@ class Display(Thread):
                     self.msg = ""
                 elif self.col_index == 2:
                     self.msg = ""
-                    self.mode = 1
-        elif self.mode == 3:
+                    self.main_menu()
+        elif self.mode == m_MAIN_MENU:
             print "MainMenu Selected: ", main_menu[self.row_index]
+            if self.row_index == 0:
+                self.row_index = 0
+                self.col_index = 0
+                self.mode = m_COMPOSE
 
     def key_back(self):
-        if self.mode == 0:
-            self.mode = 1
-        elif self.mode == 2:
+        if self.mode == m_IDLE:
+            self.mode = m_LOCK
+        elif self.mode == m_COMPOSE:
             self.msg = self.msg[:-1]

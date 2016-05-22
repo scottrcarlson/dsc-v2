@@ -48,7 +48,7 @@ class Radio(Thread):
         self.event.wait(1)
         while not self.event.is_set():
             
-            self.event.wait(0.005)
+            self.event.wait(0.05)
 
             if self.is_check_inbound:# and not is_check_outbound:
                 self.process_inbound_msg()

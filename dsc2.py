@@ -11,7 +11,7 @@ from display import Display
 from ui import UI
 from gps import Gps
 
-version = "v0.1.0" 
+version = "v0.1.1" 
 isRunning = True            #Main Thread Control Bit 
 
 radio = None
@@ -22,9 +22,7 @@ ui = None
 def signal_handler(signal, frame): #nicely shut things down
     print "[ " + str(signal) + " ] DSC2 received shutdown signal."
     radio.stop()
-    yubikey.stop()    
-    display.stop()
-    gps.stop()
+    #gps.stop()
     ui.stop()
     global isRunning
     isRunning = False
@@ -44,19 +42,11 @@ if __name__ == "__main__":
     radio = Radio("/dev/serial0",0)    
     radio.start()
 
-    yubikey = Yubikey()
-    yubikey.start()
+    #gps = Gps()
+    #gps.start()
 
-    gps = Gps()
-    gps.start()
-
-    display = Display()
-    display.start()
-    display.lock_screen()
-
-    ui = UI(display)
-    ui.start()
-    
+    ui = UI()
+    ui.start()    
 
     while isRunning:
         sleep(1)
