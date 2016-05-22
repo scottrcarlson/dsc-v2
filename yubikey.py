@@ -38,10 +38,11 @@ CAPSCODES = {
 
 
 class Yubikey(Thread):
-    def __init__(self,yubikey_status):
+    def __init__(self,yubikey_status,yubikey_auth):
         Thread.__init__(self)
         self.event = Event()
         self.yubikey_status = yubikey_status
+        self.yubikey_auth = yubikey_auth
         self.key_present = False
 
         self.dev = None
@@ -81,7 +82,6 @@ class Yubikey(Thread):
                     self.dev = InputDevice('/dev/input/event0')
 
                 x = ''
-                passphrase = ""
                 self.dev.grab()
                 try:
                     for event in self.dev.read_loop():
@@ -101,8 +101,10 @@ class Yubikey(Thread):
                                     x += key_lookup
                                 # Print it all out!
                                 if(data.scancode == 28):
-                                    print "private signing key passphrase received from yubikey:", x[:19]
-                                    print "private decrypting key passphrase received from yubikey:", x[19:]
+                                    print "Received Yubikey Input"
+                                    self.yubikey_auth(x)
+                                    #print "private signing key passphrase received from yubikey:", x[:19]
+                                    #print "private decrypting key passphrase received from yubikey:", x[19:]
                                     x = ''
                 except:
                     pass

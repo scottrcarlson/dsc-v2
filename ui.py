@@ -21,7 +21,7 @@ class UI(Thread):
         GPIO.add_event_detect(iodef.PIN_KEY_ENTER, GPIO.FALLING, callback=self.key_enter, bouncetime=150)
         GPIO.add_event_detect(iodef.PIN_KEY_BACK, GPIO.FALLING, callback=self.key_back, bouncetime=150)
 
-        self.yubikey = Yubikey(self.yubikey_status)
+        self.yubikey = Yubikey(self.yubikey_status, self.yubikey_auth)
         self.yubikey.start()
 
         self.display = Display()
@@ -87,3 +87,8 @@ class UI(Thread):
             #Perform System Wipe (Lock keys, wipe any user data from memory)
             self.display.lock()
             print "Yubikey Removed"
+
+    def yubikey_auth(self, key_psw):
+        #Check password (i.e. attempt to unlock key chain)
+        #If pass, then unlock the screen, else show error? or silence??
+        self.display.main_menu()
