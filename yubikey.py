@@ -44,7 +44,7 @@ class Yubikey(Thread):
         self.yubikey_status = yubikey_status
         self.yubikey_auth = yubikey_auth
         self.key_present = False
-
+        self.yubikey_input = ""
         self.dev = None
         #self.dev.grab()
         self.caps = False
@@ -71,7 +71,7 @@ class Yubikey(Thread):
                 if self.dev == None:
                     self.dev = InputDevice('/dev/input/event0')
                 self.dev.grab()
-                x = ''
+                self.yubikey_input = ''
 
             elif self.key_present == True and is_key_present == False:
                 #print "Yubikey Removed."
@@ -83,11 +83,11 @@ class Yubikey(Thread):
             #------[Check for Yubikey Input]---------------
             if self.key_present:
                 try:
-                    for event in self.dev.read_loop():
-                    #if True:
-                    #???
-                    #while event = self.dev.read_one() != None:
-                        #event = self.dev.read_one()
+                    input_avail = True
+                    while input_avail:        
+                        event = self.dev.read_one()
+                        if (event == None):
+                            input_avail = False
                         if event.type == ecodes.EV_KEY:
                             data = categorize(event)
                             if data.scancode == 42:
@@ -101,14 +101,14 @@ class Yubikey(Thread):
                                 else:
                                     key_lookup = u'{}'.format(SCANCODES.get(data.scancode)) or u'UNKNOWN:[{}]'.format(data.scancode)  # $
                                 if (data.scancode != 42) and (data.scancode != 28):
-                                    x += key_lookup
+                                    self.yubikey_input += key_lookup
                                 # Print it all out!
                                 if(data.scancode == 28):
                                     print "Received Yubikey Input"
-                                    self.yubikey_auth(x)
+                                    self.yubikey_auth(self.yubikey_input)
                                     #print "private signing key passphrase received from yubikey:", x[:19]
                                     #print "private decrypting key passphrase received from yubikey:", x[19:]
-                                    x = ''
+                                    self.yubikey_input = ''
                 except:
                     pass
             self.event.wait(1)
