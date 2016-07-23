@@ -14,12 +14,12 @@ class UI(Thread):
         Thread.__init__(self)
         self.event = Event()
 
-        GPIO.add_event_detect(iodef.PIN_KEY_UP, GPIO.FALLING, callback=self.key_up, bouncetime=150)
-        GPIO.add_event_detect(iodef.PIN_KEY_DOWN, GPIO.FALLING, callback=self.key_down, bouncetime=150)
-        GPIO.add_event_detect(iodef.PIN_KEY_LEFT, GPIO.FALLING, callback=self.key_left, bouncetime=150)
-        GPIO.add_event_detect(iodef.PIN_KEY_RIGHT, GPIO.FALLING, callback=self.key_right, bouncetime=150)
-        GPIO.add_event_detect(iodef.PIN_KEY_ENTER, GPIO.FALLING, callback=self.key_enter, bouncetime=150)
-        GPIO.add_event_detect(iodef.PIN_KEY_BACK, GPIO.FALLING, callback=self.key_back, bouncetime=150)
+        GPIO.add_event_detect(iodef.PIN_KEY_UP, GPIO.FALLING, callback=self.key_up, bouncetime=40)
+        GPIO.add_event_detect(iodef.PIN_KEY_DOWN, GPIO.FALLING, callback=self.key_down, bouncetime=40)
+        GPIO.add_event_detect(iodef.PIN_KEY_LEFT, GPIO.FALLING, callback=self.key_left, bouncetime=40)
+        GPIO.add_event_detect(iodef.PIN_KEY_RIGHT, GPIO.FALLING, callback=self.key_right, bouncetime=40)
+        GPIO.add_event_detect(iodef.PIN_KEY_ENTER, GPIO.FALLING, callback=self.key_enter, bouncetime=40)
+        GPIO.add_event_detect(iodef.PIN_KEY_BACK, GPIO.RISING, callback=self.key_back, bouncetime=40)
 
         self.yubikey = Yubikey(self.yubikey_status, self.yubikey_auth)
         self.yubikey.start()
@@ -28,6 +28,7 @@ class UI(Thread):
         self.display.start()
         self.display.lock()
 
+        self.btn_count = 0
         self.idle = False
         print "Initialized UI Thread."
 
@@ -72,12 +73,14 @@ class UI(Thread):
 
     def key_enter(self, channel):
         self.idle = False
+        self.btn_count = 0
         print "Pressed ENTER Key."
         self.display.key_enter()
 
     def key_back(self, channel):
         self.idle = False
-        print "Pressed BACK Key."
+        self.btn_count += 1
+        print "Pressed BACK Key: ", self.btn_count
         self.display.key_back()
 
     def yubikey_status(self,is_present):
@@ -89,7 +92,7 @@ class UI(Thread):
             self.display.lock()
             print "Yubikey Removed"
 
-    def yubikey_auth(self, key_psw):
+    def yubikey_auth(self, signing_key_passcode, decrypting_key_passcode):
         #Check password (i.e. attempt to unlock key chain)
         #If pass, then unlock the screen, else show error? or silence??
         self.display.main_menu()

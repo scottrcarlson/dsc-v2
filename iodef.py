@@ -10,14 +10,14 @@ import RPi.GPIO as GPIO
 # Pins 3 and 5 are used for I2C communication with the OLED and RTC
 # Pins 8 and 10 are used for serial communication with the radio
 PIN_RADIO_IRQ   = 7  #
-PIN_RADIO_RESET = 11 # 
-PIN_OLED_RESET  = 40
-PIN_KEY_ENTER   = 37
-PIN_KEY_BACK    = 38
-PIN_KEY_LEFT    = 33
-PIN_KEY_RIGHT   = 35
-PIN_KEY_UP      = 29
-PIN_KEY_DOWN    = 36
+PIN_RADIO_RESET = 40 # 
+PIN_OLED_RESET  = 11
+PIN_KEY_ENTER   = 36
+PIN_KEY_BACK    = 35
+PIN_KEY_LEFT    = 29
+PIN_KEY_RIGHT   = 38
+PIN_KEY_UP      = 33
+PIN_KEY_DOWN    = 37
 
 def init():
     GPIO.setwarnings(False)
@@ -27,7 +27,7 @@ def init():
     GPIO.setup(PIN_RADIO_RESET, GPIO.OUT)    
     GPIO.setup(PIN_OLED_RESET, GPIO.OUT)
     GPIO.setup(PIN_KEY_ENTER, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-    GPIO.setup(PIN_KEY_BACK, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    GPIO.setup(PIN_KEY_BACK, GPIO.IN, pull_up_down=GPIO.PUD_OFF)
     GPIO.setup(PIN_KEY_UP, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     GPIO.setup(PIN_KEY_DOWN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     GPIO.setup(PIN_KEY_LEFT, GPIO.IN, pull_up_down=GPIO.PUD_UP)

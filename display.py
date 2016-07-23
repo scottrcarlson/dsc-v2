@@ -8,6 +8,7 @@ from PIL import ImageDraw, Image, ImageFont
 from time import sleep
 import RPi.GPIO as GPIO
 import iodef
+import os
 from threading import *
 
 #DISPLAY MODES
@@ -24,6 +25,7 @@ main_menu = {
     3:"Network Stats",
     4:"Initialize Keys",
     5:"System Reset",
+    6:"Shutdown System"
 }
 
 compose_menu = {
@@ -286,7 +288,9 @@ class Display(Thread):
                 self.row_index = 0
                 self.col_index = 0
                 self.mode = m_COMPOSE
-
+            elif self.row_index == 6:
+                print "Shutting down..."
+                os.system("sudo shutdown -h now")                
     def key_back(self):
         if self.mode == m_IDLE:
             self.mode = m_LOCK

@@ -3,12 +3,18 @@
 # --- Yubkikey Helper Classes
 #----------------------------
 
-#-----[HID Capturing Resources]--------
+#-----[HID Capturing Resources]--------------------
 # adapted from https://stackoverflow.com/a/19757397
 # and https://superuser.com/questions/562434/how-can-i-read-input-from-the-hosts-keyboard-when-connected-via-ssh
 # BLA https://superuser.com/a/872440
 # -o-append-cr
-#-------------------------------------
+#-----[Yubikey Static Password Manipulation]-------
+# "Modified Hexadecimal encoding - a.k.a. 'Modhex'"
+# ref https://www.yubico.com/wp-content/uploads/2015/11/Yubico_WhitePaper_Static_Password_Function.pdf
+# ref https://developers.yubico.com/yubikey-personalization/Manuals/ykpersonalize.1.html
+
+# from https://github.com/stapelberg/pw-to-yubi/blob/master/pw-to-yubi.pl
+#--------------------------------------------------
 from threading import *
 import usb.core
 import string
@@ -16,6 +22,8 @@ from evdev import InputDevice, categorize, ecodes
 
 MIT_YUBIKEY_VENDOR_ID = 0x1050
 MIT_YUBIKEY_PRODUCT_ID = 0x0010
+
+CHARACTERS_SUPPORTED_BY_YUBIKEY = '0123456789-=[]\;`./+_{}|:"~<>?abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 SCANCODES = {
     0: None, 1: u'ESC', 2: u'1', 3: u'2', 4: u'3', 5: u'4', 6: u'5', 7: u'6', 8: u'7', 9: u'8',
@@ -105,13 +113,31 @@ class Yubikey(Thread):
                                 # Print it all out!
                                 if(data.scancode == 28):
                                     print "Received Yubikey Input"
-                                    self.yubikey_auth(self.yubikey_input)
+                                    self.yubikey_auth(self.yubikey_input[:19],self.yubikey_input[19:])
                                     #print "private signing key passphrase received from yubikey:", x[:19]
                                     #print "private decrypting key passphrase received from yubikey:", x[19:]
                                     self.yubikey_input = ''
                 except:
                     pass
             self.event.wait(1)
+
     def stop(self):
         print "Stopping Yubikey Thread."
         self.event.set()
+
+    def set_yubikey_slot1(self,private_signing_key_passphrase, private_decrypting_key_passphrase):
+        proc = subprocess.Popen(["perl", "pw-to-yubi.pl", private_signing_key_passphrase + private_decrypting_key_passphrase], stdout=subprocess.PIPE)
+        ykpersonalize_cmd_line = proc.communicate()[0]
+        print "running... ", ykpersonalize_cmd_line.split(' ')
+        proc = subprocess.Popen(ykpersonalize_cmd_line.split(' '), stdout=subprocess.PIPE)
+        ykpersonalize_output = proc.communicate()[0]
+        print "output:", ykpersonalize_output
+
+    def set_yubikey_slot2(self,private_signing_key_passphrase, private_decrypting_key_passphrase):
+        proc = subprocess.Popen(["perl", "pw-to-yubi.pl", private_signing_key_passphrase + private_decrypting_key_passphrase], stdout=subprocess.PIPE)
+        ykpersonalize_cmd_line = proc.communicate()[0]
+        print "running... ", ykpersonalize_cmd_line.split(' ')
+        proc = subprocess.Popen(ykpersonalize_cmd_line.split(' '), stdout=subprocess.PIPE)
+        ykpersonalize_output = proc.communicate()[0]
+        print "output:", ykpersonalize_output
+

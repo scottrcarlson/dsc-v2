@@ -12,12 +12,12 @@ import iodef
 from time import sleep
 
 class Radio(Thread):
-    def __init__(self,serial_device, verbose):
+    def __init__(self,serial_device, globals):
         Thread.__init__(self)
         self.event = Event()
 
         self.serial_device = serial_device
-        self.verbose = verbose
+        self.globals = globals
         self.ignore_radio_irq = False
 
         self.total_recv = 0
@@ -35,11 +35,11 @@ class Radio(Thread):
         self.reset_radio()
         GPIO.add_event_detect(iodef.PIN_RADIO_IRQ, GPIO.RISING, callback=self.check_irq, bouncetime=100)
 
-        with open("dsc2_addr.txt") as faddr:
-            self.address = faddr.read()
-            print "Some Address from a file:", self.address
+        #with open("dsc2_addr.txt") as faddr:
+            #self.address = faddr.read()
+            #print "Some Address from a file:", self.address
 
-
+        self.address = 0
         print "Initialized Radio Thread."
 
 
@@ -51,7 +51,7 @@ class Radio(Thread):
 
             if self.is_check_inbound:# and not is_check_outbound:
                 self.process_inbound_msg()
-            else:
+            elif self.globals.transmit_ok:
                 self.process_outbound_msg()
 
             if self.total_sent != self.prev_total_sent or self.total_recv != self.prev_total_recv or self.total_exceptions != self.prev_total_exceptions:
@@ -85,7 +85,7 @@ class Radio(Thread):
             received_data = self.mc._send_command(OPCODES['PKT_RECV_CONT'])
             sleep(0.01)
         except Exception, e:
-            if self.verbose > 0:
+            if self.globals.radio_verbose > 0:
                 print "EXCEPTION PKT_RECV_CONT: ", e
         else:
             if len(received_data) > 0:
@@ -98,7 +98,7 @@ class Radio(Thread):
                 (rssi, ) = struct.unpack_from('<h', bytes(received_data[:2]))
                 snr = received_data[2] / 4.0
 
-                if self.verbose > 1:
+                if self.globals.radio_verbose > 1:
                     print "[START]--------------------------"
                     print "RSSI:", rssi, "SnR:", snr
                     print "Signal Quality:",signal_quality(rssi)
@@ -114,7 +114,7 @@ class Radio(Thread):
                 sleep(0.01)
 
             except Exception, e:
-                if self.verbose > 0:
+                if self.globals.radio_verbose > 0:
                     print "EXCEPTION: CLEAR_IRQ_FLAGS: ", e
 
 
@@ -128,7 +128,7 @@ class Radio(Thread):
                     sleep(0.015)
                     self.is_check_outbound = False
                 except Exception, e:
-                    if self.verbose > 0:
+                    if self.globals.radio_verbose > 0:
                         print "EXCEPTION PKT_SEND_QUEUE: ", e
                     self.total_exceptions += 1
                     self.is_check_outbound = False
@@ -147,12 +147,12 @@ class Radio(Thread):
                 irq_flags = self.mc.get_irq_flags()
 
             except Exception, e:
-                if self.verbose > 0:
+                if self.globals.radio_verbose > 0:
                     print "EXCEPTION GET_IRQ_FLAGS: ", e
                 self.total_exceptions += 1
 
             else:
-                if self.verbose > 1:
+                if self.globals.radio_verbose > 1:
                     print "IRQ FIRED: ", irq_flags
 
                 if "RX_DONE" in irq_flags:
@@ -175,7 +175,7 @@ class Radio(Thread):
         try:
             self.mc.clear_irq_flags()
         except Exception, e:
-            if self.verbose > 0:
+            if self.globals.radio_verbose > 0:
                 print "EXCEPTION: CLEAR_IRQ_FLAGS: ", e
         self.ignore_radio_irq = False
 
@@ -184,16 +184,16 @@ class Radio(Thread):
         try:
             received_data = self.mc._send_command(OPCODES['PKT_RECV_CONT'])
         except Exception, e:
-            if self.verbose > 0:
+            if self.globals.radio_verbose > 0:
                 print "EXCEPTION PKT_RECV_CONT: ", e
         else:
-            if self.verbose > 1:
+            if self.globals.radio_verbose > 1:
                 print "Radio in Recv Mode"
         sleep(0.01)
         try:
             self.mc.clear_irq_flags()
 
         except Exception, e:
-            if self.verbose > 0:
+            if self.globals.radio_verbose > 0:
                 print "EXCEPTION: CLEAR_IRQ_FLAGS: ", e
 
