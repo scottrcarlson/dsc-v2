@@ -13,12 +13,14 @@ from time import sleep
 import time
 
 class Radio(Thread):
-    def __init__(self,serial_device, globals):
+    def __init__(self,serial_device, globals, message):
         Thread.__init__(self)
         self.event = Event()
 
         self.serial_device = serial_device
         self.globals = globals
+        self.message = message
+
         self.ignore_radio_irq = False
 
         self.total_recv = 0
@@ -120,7 +122,8 @@ class Radio(Thread):
 
                 (rssi, ) = struct.unpack_from('<h', bytes(received_data[:2]))
                 snr = received_data[2] / 4.0
-
+                
+                self.message.msg_received_from_radio(msg)
                 if self.globals.radio_verbose > 1:
                     print "[START]--------------------------"
                     print "RSSI:", rssi, "SnR:", snr

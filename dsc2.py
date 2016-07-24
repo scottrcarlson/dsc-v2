@@ -12,7 +12,7 @@ from ui import UI
 from gps import Gps
 import iodef
 import globals
-import message
+from message import Message
 
 version = "v0.2.0" 
 isRunning = True            #Main Thread Control Bit 
@@ -30,7 +30,7 @@ def signal_handler(signal, frame): #nicely shut things down
     message.stop()
     global isRunning
     isRunning = False
-    print "Shutting down..."
+    print "Exiting DSCv2..."
     sleep(2)
             
 if __name__ == "__main__":
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     message = Message(globals)
     message.start()
 
-    radio = Radio("/dev/serial0",globals)    
+    radio = Radio("/dev/serial0",globals, message)    
     radio.start()
 
     #Spawn if we have GPS unit
