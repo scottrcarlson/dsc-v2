@@ -8,9 +8,13 @@ import iodef
 from threading import *
 from yubikey import Yubikey
 from display import Display
+from oled.device import ssd1306, sh1106
+from oled.render import canvas
+from PIL import ImageDraw, Image, ImageFont
+import os
 
 class UI(Thread):
-    def __init__(self):
+    def __init__(self, message):
         Thread.__init__(self)
         self.event = Event()
 
@@ -21,6 +25,7 @@ class UI(Thread):
         GPIO.add_event_detect(iodef.PIN_KEY_ENTER, GPIO.FALLING, callback=self.key_enter, bouncetime=40)
         GPIO.add_event_detect(iodef.PIN_KEY_BACK, GPIO.RISING, callback=self.key_back, bouncetime=40)
 
+        self.message = message
         self.yubikey = Yubikey(self.yubikey_status, self.yubikey_auth)
         self.yubikey.start()
 

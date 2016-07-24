@@ -10,6 +10,7 @@ import datetime
 from threading import * 
 import iodef
 from time import sleep
+import time
 
 class Radio(Thread):
     def __init__(self,serial_device, globals):
@@ -27,6 +28,16 @@ class Radio(Thread):
         self.prev_total_recv = 0
         self.prev_total_exceptions = 0
 
+        self.last_tx = time.time()
+        self.tx_throttle = 0.75
+        self.tx_time = 4
+        self.tx_deadband = 1
+
+        self.total_tdma_slots = 2 # Total Nodes Registered on the Network
+        self.tdma_slot = 0        # Slot Index for this Particular Node
+        self.tdma_slot_width = self.tx_time + self.tx_deadband
+        self.tdma_frame = self.tdma_slot_width * self.total_tdma_slots
+
         self.is_check_outbound = False
         self.is_check_inbound = True
         self.update_stats = True
@@ -35,23 +46,22 @@ class Radio(Thread):
         self.reset_radio()
         GPIO.add_event_detect(iodef.PIN_RADIO_IRQ, GPIO.RISING, callback=self.check_irq, bouncetime=100)
 
-        #with open("dsc2_addr.txt") as faddr:
-            #self.address = faddr.read()
-            #print "Some Address from a file:", self.address
-
-        self.address = 0
+        self.address = 0 #get rid of this
         print "Initialized Radio Thread."
 
 
     def run(self):
         self.event.wait(1)
+        last_checked_tdma = time.time()
+        transmit_ok = False
         while not self.event.is_set():
             
             self.event.wait(0.05)
 
             if self.is_check_inbound:# and not is_check_outbound:
                 self.process_inbound_msg()
-            elif self.globals.transmit_ok:
+            elif transmit_ok and (time.time() - self.last_tx) > self.tx_throttle:
+                self.last_tx = time.time()
                 self.process_outbound_msg()
 
             if self.total_sent != self.prev_total_sent or self.total_recv != self.prev_total_recv or self.total_exceptions != self.prev_total_exceptions:
@@ -60,7 +70,22 @@ class Radio(Thread):
                 self.prev_total_exceptions = self.total_exceptions
                 print "== Sent: [",self.total_sent,"]  Recvd:[",self.total_recv,"] Radio Exceptions:[",self.total_exceptions,"] =="
 
-                
+            if (time.time() - last_checked_tdma) > 0.5: #Check to see if our TDMA Slot is Active
+                last_checked_tdma = time.time()
+                epoch = time.time()
+                tdma_frames_since_epoch = int(epoch / self.tdma_frame)
+
+                slot_start = (self.tdma_slot * self.tdma_slot_width) + (self.tdma_frame * tdma_frames_since_epoch)
+                slot_end = slot_start + self.tdma_slot_width
+
+                if (epoch > slot_start and epoch < (slot_end - self.tx_deadband)):
+                    #print "SLOT: ", slot, " Enable TX"
+                    transmit_ok = True
+                else:
+                    #print "SLOT: ", slot, " Disable TX"
+                    transmit_ok = False
+
+            
     def stop(self):
         print "Stopping Radio Thread."
         self.event.set()
@@ -90,9 +115,7 @@ class Radio(Thread):
         else:
             if len(received_data) > 0:
                 self.update_stats = True
-                addr_to = chr(received_data[3])
-                addr_from = chr(received_data[4])
-                msg = received_data[5:]
+                msg = received_data[3:]
                 self.total_recv += 1
 
                 (rssi, ) = struct.unpack_from('<h', bytes(received_data[:2]))
@@ -104,14 +127,14 @@ class Radio(Thread):
                     print "Signal Quality:",signal_quality(rssi)
                     print "Msg: ", msg
                     print "----------------------------[END]"
-                sleep(0.025)
+                sleep(0.15)
 
         finally:
             self.is_check_inbound = False
 
             try:
                 self.mc.clear_irq_flags()
-                sleep(0.01)
+                sleep(0.05)
 
             except Exception, e:
                 if self.globals.radio_verbose > 0:
@@ -119,25 +142,27 @@ class Radio(Thread):
 
 
     def process_outbound_msg(self):
-        if os.path.isfile("outbound.txt"):
-            with open("outbound.txt",'r') as f:
-                outbound_data = f.read()
-                self.is_check_outbound = True
-                try:
-                    r = self.mc._send_command(OPCODES['PKT_SEND_QUEUE'], outbound_data)
-                    sleep(0.015)
-                    self.is_check_outbound = False
-                except Exception, e:
-                    if self.globals.radio_verbose > 0:
-                        print "EXCEPTION PKT_SEND_QUEUE: ", e
-                    self.total_exceptions += 1
-                    self.is_check_outbound = False
-                    self.reset_radio()
+        msg_list_len = len(self.globals.repeat_msg_list)
+        if msg_list_len > 0:
+            if self.globals.repeat_msg_index >= msg_list_len:
+                self.globals.repeat_msg_index = 0
+            outbound_data = self.globals.repeat_msg_list[self.globals.repeat_msg_index]
+            self.globals.repeat_msg_index += 1
 
-                    sleep(0.025)
-                self.update_stats = True
-            os.remove("outbound.txt")
+            self.is_check_outbound = True
+            try:
+                r = self.mc._send_command(OPCODES['PKT_SEND_QUEUE'], outbound_data)
+                sleep(0.015)
+                self.is_check_outbound = False
+            except Exception, e:
+                if self.globals.radio_verbose > 0:
+                    print "EXCEPTION PKT_SEND_QUEUE: ", e
+                self.total_exceptions += 1
+                self.is_check_outbound = False
+                self.reset_radio()
 
+                sleep(0.025)
+            self.update_stats = True
 
     def check_irq(self,channel):
         if not self.ignore_radio_irq:
