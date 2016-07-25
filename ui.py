@@ -23,11 +23,55 @@ m_MAIN_MENU = 4
 main_menu = {
     0:"Send New Msg",
     1:"View Msgs",
-    2:"Add a Friend",
+    2:"---------------",
     3:"Network Stats",
     4:"Initialize Keys",
     5:"System Reset",
     6:"Shutdown System"
+}
+
+system_menu = {
+    0:"Update Software",
+    1:"Import Keys",
+    2:"Export Keys",
+    3:"Generate Keys",
+    4:"Wipe USB Drv",
+    5:"Factory Reset",
+}
+
+export_keys_menu = {
+    0:"Export Keys",
+    1:"---------------",
+    2:"Node Keys",
+    3:"Network Key Pair"
+}
+
+import_keys_menu = {
+    0:"Import Keys",
+    1:"---------------",
+    2:"Add a Node",
+    3:"Network Key Pair"
+}
+
+generate_keys_menu = {
+    0:"Generate Keys",
+    1:"---------------",
+    2:"Node Key Pair",
+    3:"Network Key Pair"
+}
+
+update_software_menu = {
+    0:"Update Software?",
+    1:"---------------"
+    2:"No",
+    3:"Yes"
+}
+
+factory_reset_menu = {
+    0:"Factory Reset?",
+    1:"---------------"
+    2:"No",
+    3:"Yes"
 }
 
 compose_menu = {
@@ -43,7 +87,7 @@ recipient_menu = {      #This will be generated based on friend list (keys excha
     1:"Person_4"
 }
 
-view_msg_thread_menu = {
+view_msg_thread_menu = { # (*) indicates unread messages
     0:"(*)Everyone",
     1:"Doris",
     2:"(*)Boris",
@@ -63,8 +107,10 @@ pretext_menu = {
     10:"I'm in hotel room, down time."
 }
 
-test_broadcast_thread_msg = [
-    "Doris 2016.08.07 13:00:",
+test_msg_thread = [
+    "---------------------"
+    "Doris",
+    "08.07 13:00 td: 1234m",
     "Hello World",
     "Boris 2016.08.07 13:02",
     "Hello World!",
