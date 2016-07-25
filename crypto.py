@@ -33,10 +33,10 @@ if __name__ == '__main__':
     os.mkdir(rsa_pub_path2)
 
 
-    keyset_type = keyczar.KeyczarTool.JSON_FILE
+    keyset_type = keyczar.KeyczarT.JSON_FILE
     keyset_password = 'cartman'
 
-    kt = keyczar.KeyczarTool(keyset_type)
+    kt = keyczar.KeyczarT(keyset_type)
 
     # Create a RSA key set for signing and verifying
     kt.CmdCreate(rsa_path2, keyczar.KeyPurpose.SIGN_AND_VERIFY,

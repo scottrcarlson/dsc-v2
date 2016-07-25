@@ -13,15 +13,16 @@ from time import sleep
 import time
 
 class Radio(Thread):
-    def __init__(self,serial_device, globals, message):
+    def __init__(self,serial_device, config, message):
         Thread.__init__(self)
         self.event = Event()
 
         self.serial_device = serial_device
-        self.globals = globals
+        self.config = config
         self.message = message
 
         self.ignore_radio_irq = False
+        self.radio_verbose = 0
 
         self.total_recv = 0
         self.total_sent = 0
@@ -32,13 +33,8 @@ class Radio(Thread):
 
         self.last_tx = time.time()
         self.tx_throttle = 0.75
-        self.tx_time = 4
-        self.tx_deadband = 1
-
-        self.total_tdma_slots = 2 # Total Nodes Registered on the Network
-        self.tdma_slot = 0        # Slot Index for this Particular Node
-        self.tdma_slot_width = self.tx_time + self.tx_deadband
-        self.tdma_frame = self.tdma_slot_width * self.total_tdma_slots
+        self.tdma_slot_width = self.config.tx_time + self.config.tx_deadband
+        self.tdma_frame = self.tdma_slot_width * self.config.tdma_total_slots
 
         self.is_check_outbound = False
         self.is_check_inbound = True
@@ -77,10 +73,10 @@ class Radio(Thread):
                 epoch = time.time()
                 tdma_frames_since_epoch = int(epoch / self.tdma_frame)
 
-                slot_start = (self.tdma_slot * self.tdma_slot_width) + (self.tdma_frame * tdma_frames_since_epoch)
+                slot_start = (self.config.tdma_slot * self.tdma_slot_width) + (self.tdma_frame * tdma_frames_since_epoch)
                 slot_end = slot_start + self.tdma_slot_width
 
-                if (epoch > slot_start and epoch < (slot_end - self.tx_deadband)):
+                if (epoch > slot_start and epoch < (slot_end - self.config.tx_deadband)):
                     #print "SLOT: ", slot, " Enable TX"
                     transmit_ok = True
                 else:
@@ -112,7 +108,7 @@ class Radio(Thread):
             received_data = self.mc._send_command(OPCODES['PKT_RECV_CONT'])
             sleep(0.01)
         except Exception, e:
-            if self.globals.radio_verbose > 0:
+            if self.radio_verbose > 0:
                 print "EXCEPTION PKT_RECV_CONT: ", e
         else:
             if len(received_data) > 0:
@@ -123,8 +119,8 @@ class Radio(Thread):
                 (rssi, ) = struct.unpack_from('<h', bytes(received_data[:2]))
                 snr = received_data[2] / 4.0
                 
-                self.message.msg_received_from_radio(msg)
-                if self.globals.radio_verbose > 1:
+                self.message.radio_inbound_queue.put_nowait(msg)
+                if self.radio_verbose > 1:
                     print "[START]--------------------------"
                     print "RSSI:", rssi, "SnR:", snr
                     print "Signal Quality:",signal_quality(rssi)
@@ -140,25 +136,21 @@ class Radio(Thread):
                 sleep(0.05)
 
             except Exception, e:
-                if self.globals.radio_verbose > 0:
+                if self.radio_verbose > 0:
                     print "EXCEPTION: CLEAR_IRQ_FLAGS: ", e
 
 
     def process_outbound_msg(self):
-        msg_list_len = len(self.globals.repeat_msg_list)
-        if msg_list_len > 0:
-            if self.globals.repeat_msg_index >= msg_list_len:
-                self.globals.repeat_msg_index = 0
-            outbound_data = self.globals.repeat_msg_list[self.globals.repeat_msg_index]
-            self.globals.repeat_msg_index += 1
-
+        if self.message.is_msg_avail_to_repeat():
+            outbound_data = self.message.get_next_msg_for_repeat()
+            print "Outbound Message Sending: " + outbound_data
             self.is_check_outbound = True
             try:
                 r = self.mc._send_command(OPCODES['PKT_SEND_QUEUE'], outbound_data)
                 sleep(0.015)
                 self.is_check_outbound = False
             except Exception, e:
-                if self.globals.radio_verbose > 0:
+                if self.radio_verbose > 0:
                     print "EXCEPTION PKT_SEND_QUEUE: ", e
                 self.total_exceptions += 1
                 self.is_check_outbound = False
@@ -175,12 +167,12 @@ class Radio(Thread):
                 irq_flags = self.mc.get_irq_flags()
 
             except Exception, e:
-                if self.globals.radio_verbose > 0:
+                if self.radio_verbose > 0:
                     print "EXCEPTION GET_IRQ_FLAGS: ", e
                 self.total_exceptions += 1
 
             else:
-                if self.globals.radio_verbose > 1:
+                if self.radio_verbose > 1:
                     print "IRQ FIRED: ", irq_flags
 
                 if "RX_DONE" in irq_flags:
@@ -203,7 +195,7 @@ class Radio(Thread):
         try:
             self.mc.clear_irq_flags()
         except Exception, e:
-            if self.globals.radio_verbose > 0:
+            if self.radio_verbose > 0:
                 print "EXCEPTION: CLEAR_IRQ_FLAGS: ", e
         self.ignore_radio_irq = False
 
@@ -212,16 +204,16 @@ class Radio(Thread):
         try:
             received_data = self.mc._send_command(OPCODES['PKT_RECV_CONT'])
         except Exception, e:
-            if self.globals.radio_verbose > 0:
+            if self.radio_verbose > 0:
                 print "EXCEPTION PKT_RECV_CONT: ", e
         else:
-            if self.globals.radio_verbose > 1:
+            if self.radio_verbose > 1:
                 print "Radio in Recv Mode"
         sleep(0.01)
         try:
             self.mc.clear_irq_flags()
 
         except Exception, e:
-            if self.globals.radio_verbose > 0:
+            if self.radio_verbose > 0:
                 print "EXCEPTION: CLEAR_IRQ_FLAGS: ", e
 

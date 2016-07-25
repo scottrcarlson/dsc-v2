@@ -11,10 +11,10 @@ from display import Display
 from ui import UI
 from gps import Gps
 import iodef
-import globals
 from message import Message
+from config import Config
 
-version = "v0.2.0" 
+version = "v0.2.5" 
 isRunning = True            #Main Thread Control Bit 
 
 radio = None
@@ -42,16 +42,16 @@ if __name__ == "__main__":
         signal.signal(sig, signal_handler)
 
 
-    globals = globals.Globals()
     iodef.init()
 
-    message = Message(globals)
+    config = Config()
+    message = Message()
     message.start()
 
-    radio = Radio("/dev/serial0",globals, message)    
+    radio = Radio("/dev/serial0",config, message)    
     radio.start()
 
-    #Spawn if we have GPS unit
+    #add some logic here to spawn if we have GPS unit
     #gps = Gps()
     #gps.start()
 
