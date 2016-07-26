@@ -23,8 +23,6 @@ from evdev import InputDevice, categorize, ecodes
 MIT_YUBIKEY_VENDOR_ID = 0x1050
 MIT_YUBIKEY_PRODUCT_ID = 0x0010
 
-CHARACTERS_SUPPORTED_BY_YUBIKEY = '0123456789-=[]\;`./+_{}|:"~<>?abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-
 SCANCODES = {
     0: None, 1: u'ESC', 2: u'1', 3: u'2', 4: u'3', 5: u'4', 6: u'5', 7: u'6', 8: u'7', 9: u'8',
     10: u'9', 11: u'0', 12: u'-', 13: u'=', 14: u'BKSP', 15: u'TAB', 16: u'q', 17: u'w', 18: u'e', 19: u'r',
