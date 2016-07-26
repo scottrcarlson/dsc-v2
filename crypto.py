@@ -34,7 +34,6 @@ def gen_keysets(keyset_password):
 	os.makedirs(ENCR_DECR_KEYPAIR_PUB_PATH)
 	os.makedirs(SIGN_VERI_KEYPAIR_PATH)
 	os.makedirs(SIGN_VERI_KEYPAIR_PUB_PATH)
-
 	keyset_type = keyczar.KeyczarTool.JSON_FILE
 	kt = keyczar.KeyczarTool(keyset_type)
 
