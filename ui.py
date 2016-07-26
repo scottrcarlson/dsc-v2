@@ -62,14 +62,14 @@ generate_keys_menu = {
 
 update_software_menu = {
     0:"Update Software?",
-    1:"---------------"
+    1:"---------------",
     2:"No",
     3:"Yes"
 }
 
 factory_reset_menu = {
     0:"Factory Reset?",
-    1:"---------------"
+    1:"---------------",
     2:"No",
     3:"Yes"
 }

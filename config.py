@@ -6,7 +6,7 @@ import ConfigParser
 import os
 import errno
 
-CONFIG_PATH = "/home/dsc/.dsc"
+CONFIG_PATH = "/dscdata"
 CONFIG_FILE = "dsc.config"
 
 class Config(object):
