@@ -19,6 +19,7 @@ from threading import *
 import usb.core
 import string
 from evdev import InputDevice, categorize, ecodes
+import subprocess
 
 MIT_YUBIKEY_VENDOR_ID = 0x1050
 MIT_YUBIKEY_PRODUCT_ID = 0x0010
@@ -90,7 +91,7 @@ class Yubikey(Thread):
             if self.key_present:
                 try:
                     input_avail = True
-                    while input_avail:        
+                    while input_avail:
                         event = self.dev.read_one()
                         if (event == None):
                             input_avail = False
@@ -107,35 +108,43 @@ class Yubikey(Thread):
                                 else:
                                     key_lookup = u'{}'.format(SCANCODES.get(data.scancode)) or u'UNKNOWN:[{}]'.format(data.scancode)  # $
                                 if (data.scancode != 42) and (data.scancode != 28):
+                                   
                                     self.yubikey_input += key_lookup
                                 # Print it all out!
                                 if(data.scancode == 28):
                                     print "Received Yubikey Input"
-                                    self.yubikey_auth(self.yubikey_input[:19],self.yubikey_input[19:])
-                                    #print "private signing key passphrase received from yubikey:", x[:19]
-                                    #print "private decrypting key passphrase received from yubikey:", x[19:]
-                                    self.yubikey_input = ''
+                                    print self.yubikey_input
+                                    self.yubikey_auth(self.yubikey_input)
+                                    self.yubikey_input = ''              
                 except:
                     pass
-            self.event.wait(1)
+                self.event.wait(0.01)
+            else:
+                self.event.wait(1)
 
     def stop(self):
         print "Stopping Yubikey Thread."
         self.event.set()
 
-    def set_yubikey_slot1(self,private_signing_key_passphrase, private_decrypting_key_passphrase):
-        proc = subprocess.Popen(["perl", "pw-to-yubi.pl", private_signing_key_passphrase + private_decrypting_key_passphrase], stdout=subprocess.PIPE)
+    def set_slot1(self,private_key_password):
+        proc = subprocess.Popen(["perl", "pw-to-yubi.pl", private_key_password], stdout=subprocess.PIPE)
         ykpersonalize_cmd_line = proc.communicate()[0]
         print "running... ", ykpersonalize_cmd_line.split(' ')
         proc = subprocess.Popen(ykpersonalize_cmd_line.split(' '), stdout=subprocess.PIPE)
         ykpersonalize_output = proc.communicate()[0]
         print "output:", ykpersonalize_output
+        #Grab control over yubikey input again
+        self.dev = InputDevice('/dev/input/event0')
+        self.dev.grab()
 
-    def set_yubikey_slot2(self,private_signing_key_passphrase, private_decrypting_key_passphrase):
-        proc = subprocess.Popen(["perl", "pw-to-yubi.pl", private_signing_key_passphrase + private_decrypting_key_passphrase], stdout=subprocess.PIPE)
+    def set_slot2(self,private_key_password):
+        proc = subprocess.Popen(["perl", "pw-to-yubi.pl", private_key_password], stdout=subprocess.PIPE)
         ykpersonalize_cmd_line = proc.communicate()[0]
         print "running... ", ykpersonalize_cmd_line.split(' ')
         proc = subprocess.Popen(ykpersonalize_cmd_line.split(' '), stdout=subprocess.PIPE)
         ykpersonalize_output = proc.communicate()[0]
         print "output:", ykpersonalize_output
+        #Grab control over yubikey input again
+        self.dev = InputDevice('/dev/input/event0')
+        self.dev.grab()
 

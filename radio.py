@@ -32,7 +32,7 @@ class Radio(Thread):
         self.prev_total_exceptions = 0
 
         self.last_tx = time.time()
-        self.tx_throttle = 0.75
+        self.tx_throttle = 0.4
         self.tdma_slot_width = self.config.tx_time + self.config.tx_deadband
         self.tdma_frame = self.tdma_slot_width * self.config.tdma_total_slots
 
@@ -56,7 +56,7 @@ class Radio(Thread):
             
             self.event.wait(0.05)
 
-            if self.is_check_inbound:# and not is_check_outbound:
+            if self.is_check_inbound and not transmit_ok:# and not is_check_outbound:
                 self.process_inbound_msg()
             elif transmit_ok and (time.time() - self.last_tx) > self.tx_throttle:
                 self.last_tx = time.time()

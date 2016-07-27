@@ -3,6 +3,7 @@
 # --- DSC2 UI THREAD
 #----------------------------
 from time import sleep
+import time
 import RPi.GPIO as GPIO
 import iodef
 from threading import *
@@ -12,99 +13,35 @@ from oled.device import ssd1306, sh1106
 from oled.render import canvas
 from PIL import ImageDraw, Image, ImageFont
 import os
+import screen as scr
 
 #DISPLAY MODES
 m_IDLE = 0
 m_LOCK = 1
 m_AUTH = 2
-m_COMPOSE = 3
-m_MAIN_MENU = 4
+m_RECIPIENT_MENU = 3
+m_COMPOSE_MENU = 4
+m_COMPOSE = 5
+m_MAIN_MENU = 6
+m_DIALOG = 7
+m_MSG_VIEWER = 8
+m_DIALOG_YESNO = 9
+m_SYSTEM_MENU = 10
+m_DIALOG_TASK = 11
 
-main_menu = {
-    0:"Send New Msg",
-    1:"View Msgs",
-    2:"---------------",
-    3:"Network Stats",
-    4:"Initialize Keys",
-    5:"System Reset",
-    6:"Shutdown System"
-}
-
-system_menu = {
-    0:"Update Software",
-    1:"Import Keys",
-    2:"Export Keys",
-    3:"Generate Keys",
-    4:"Wipe USB Drv",
-    5:"Factory Reset",
-}
-
-export_keys_menu = {
-    0:"Export Keys",
-    1:"---------------",
-    2:"Node Keys",
-    3:"Network Key Pair"
-}
-
-import_keys_menu = {
-    0:"Import Keys",
-    1:"---------------",
-    2:"Add a Node",
-    3:"Network Key Pair"
-}
-
-generate_keys_menu = {
-    0:"Generate Keys",
-    1:"---------------",
-    2:"Node Key Pair",
-    3:"Network Key Pair"
-}
-
-update_software_menu = {
-    0:"Update Software?",
-    1:"---------------",
-    2:"No",
-    3:"Yes"
-}
-
-factory_reset_menu = {
-    0:"Factory Reset?",
-    1:"---------------",
-    2:"No",
-    3:"Yes"
-}
-
-compose_menu = {
-    0:"Pretext Msg",
-    1:"Empty Msg"
-}
-
-recipient_menu = {      #This will be generated based on friend list (keys exchanged)
-    0:"Everyone",
-    1:"Person_1",
-    1:"Person_2",
-    1:"Person_3",
-    1:"Person_4"
-}
+#DIALOG COMMAND (If Yes is Chosen)
+cmd_SHUTDOWN = 0
+cmd_GEN_KEYSET = 1
+cmd_FACTORY_RESET = 2
+cmd_SOFTWARE_UPDATE = 3
+cmd_IMPORT_PUB_KEYS = 4
+cmd_EXPORT_PUB_KEYS = 5
+cmd_WIPE_USB_DRV = 6
 
 view_msg_thread_menu = { # (*) indicates unread messages
     0:"(*)Everyone",
     1:"Doris",
     2:"(*)Boris",
-}
-
-pretext_menu = {
-    0:"Where are you?",
-    1:"Where/When do you want to meet?",
-    2:"I am ",
-    3:"Meet you at ",
-    4:"I'll be there in ",
-    5:"I'm hungry, anyone want to grab some food?",
-    6:"Let's grab some beers",
-    7:"I'm at Bally/Paris",
-    8:"I'm in SkyTalks",
-    9:"I'm in 101 Presentation",
-    10:"I'm in hotel room, down time."
 }
 
 test_msg_thread = [
@@ -123,7 +60,7 @@ keyboard = "abcdefghijklmnopqrstuvwxyz1234567890!?$%.-"
 
 
 class UI(Thread):
-    def __init__(self, message):
+    def __init__(self, display, message, crypto):
         Thread.__init__(self)
         self.event = Event()
 
@@ -134,36 +71,13 @@ class UI(Thread):
         GPIO.add_event_detect(iodef.PIN_KEY_ENTER, GPIO.FALLING, callback=self.key_enter, bouncetime=40)
         GPIO.add_event_detect(iodef.PIN_KEY_BACK, GPIO.RISING, callback=self.key_back, bouncetime=40)
 
+        self.display = display
+        self.crypto = crypto
         self.message = message
         self.yubikey = Yubikey(self.yubikey_status, self.yubikey_auth)
         self.yubikey.start()
-
-        #self.display = Display()
-        #self.display.start()
-
-        self.btn_count = 0
+        
         self.is_idle = False
-
-
-        self.reset()
-        # TODO: gracefully handle exception when OLED absent
-        self.device = sh1106(port=1, address=0x3C)
-        self.font = ImageFont.load_default()
-        self.msg = ""
-
-        #Modes
-        # 0 -- Lock Screen
-        # 1 -- Message Composition
-        self.mode = m_IDLE
- 
-        self.row_index = 0
-        self.col_index = 0
-        self.char_space = 6
-        self.char_size = 4
-        self.row_height = 12
-        self.screen_row_size = 5
-        self.viz_min = 0
-        self.viz_max = self.screen_row_size
 
         self.lock()
         print "Initialized UI Thread."
@@ -181,83 +95,7 @@ class UI(Thread):
             #else:
             #    self.is_idle = True
 
-
-            #------[IDLE]--------------------------------------------------------------------------
-            if self.mode == m_IDLE:
-                with canvas(self.device) as draw:
-                    pass
-            #------[LOCK SCREEN]-------------------------------------------------------------------       
-            if self.mode == m_LOCK:
-                with canvas(self.device) as draw:
-                    logo = Image.open('/home/pi/dsc.png')
-                    draw.bitmap((0, 20), logo, fill=1)
-                    draw.text((0, 52), '5', font=self.font, fill=255)
-                    #draw.text((105, 52), 'SYNC', font=self.font, fill=255)
-                    draw.text((6, 10), 'dirt   simple  comms', font=self.font, fill=255)
-                    draw.text((35, 52), 'insert key', font=self.font, fill=255)
-            #------[AUTH SCREEN]-------------------------------------------------------------------       
-            if self.mode == m_AUTH:
-                with canvas(self.device) as draw:
-                    logo = Image.open('/home/pi/dsc.png')
-                    draw.bitmap((0, 20), logo, fill=1)
-                    draw.text((0, 52), '5', font=self.font, fill=255)
-                    #draw.text((105, 52), 'SYNC', font=self.font, fill=255)
-                    draw.text((6, 10), 'dirt   simple  comms', font=self.font, fill=255)
-                    draw.text((25, 52), 'enter password', font=self.font, fill=255)
-
-          #------[MSG COMPOSITION]----------------------------------------------------------------
-            elif self.mode == m_COMPOSE:
-                self.row = 51 + (self.row_index * self.row_height)
-                self.col = self.char_space * self.col_index
-                with canvas(self.device) as draw:
-                    draw.text((0, 0), self.msg, font=self.font, fill=255)
-                    draw.line((0, 39, 127, 39), fill=255)
-                    #draw.text((0, 40), 'abcdefghijklmnopqrstu', font=self.font, fill=255)
-                    #draw.text((0, 52), 'vwxyz1234567890!?$%.-', font=self.font, fill=255)
-                    draw.text((0, 40), keyboard[:21], font=self.font, fill=255)
-                    draw.text((0, 52), keyboard[21:], font=self.font, fill=255)
-                    if self.row_index >= 0:
-                        draw.text((0, 28), ' SEND  CLEAR  CANCEL', font=self.font, fill=255)
-                        draw.line((self.col, self.row, self.char_size+self.col, self.row), fill=255)
-                    else:
-                        if self.col_index == 0:
-                            draw.text((0, 28), '<SEND> CLEAR  CANCEL ', font=self.font, fill=255)
-                        elif self.col_index == 1:
-                            draw.text((0, 28), ' SEND <CLEAR> CANCEL ', font=self.font, fill=255)
-                        elif self.col_index == 2:
-                            draw.text((0, 28), ' SEND  CLEAR <CANCEL>', font=self.font, fill=255)
-
-          #------[MAIN MENU]----------------------------------------------------------------------
-            elif self.mode == m_MAIN_MENU:
-                with canvas(self.device) as draw:
-                    draw.line((121,3,124,0), fill=255)
-                    draw.line((124,0,127,3), fill=255)
-                    if (self.row_index < self.viz_min):
-                        self.viz_max -= self.viz_min - self.row_index
-                        self.viz_min = self.row_index
-                    if (self.row_index >= self.viz_max):
-                        self.viz_max = self.row_index + 1
-                        self.viz_min = self.viz_max - self.screen_row_size
-                    #print "Row Index: ", self.row_index, " Viz_Min:", self.viz_min, " Viz_Max:", self.viz_max
-                    for i in range(self.viz_min,self.viz_max):
-                        draw.text((20, 4+( (i-self.viz_min) * self.row_height) ), main_menu[i], font=self.font, fill=255)
-                    #draw.text((20, 16), main_menu[1], font=self.font, fill=255)
-                    #draw.text((20, 28), main_menu[2], font=self.font, fill=255)
-                    #draw.text((20, 40), main_menu[3], font=self.font, fill=255)
-                    #draw.text((20, 52), main_menu[4], font=self.font, fill=255)
-                    #draw.text((20, 4), 'Send New Msg', font=self.font, fill=255)
-                    #draw.text((20, 16), 'View Received', font=self.font, fill=255)
-                    #draw.text((20, 28), 'View Sent', font=self.font, fill=255)
-                    #draw.text((20, 40), 'View Outbound', font=self.font, fill=255)
-                    #draw.text((20, 52), 'Initialize keys', font=self.font, fill=255)
-                    draw.line((121,60,124,63), fill=255)
-                    draw.line((124,63,127,60), fill=255)
-
-                    draw.text((0, 4 + (12* (self.row_index - self.viz_min))), '->', font=self.font, fill=255)
-            self.event.wait(0.05)
-        
-        with canvas(self.device) as draw:
-            pass
+            self.event.wait(1)
 
     def stop(self):
         print "Stopping UI Thread."
@@ -266,32 +104,27 @@ class UI(Thread):
         self.event.wait(2)
         self.event.set()
 
-    def reset(self):
-        GPIO.output(iodef.PIN_OLED_RESET, False)
-        sleep(1)
-        GPIO.output(iodef.PIN_OLED_RESET, True)
-
     def idle(self):
-        if self.mode == m_LOCK:
-            self.mode = m_IDLE
+        if self.display.mode == m_LOCK:
+            self.display.mode = m_IDLE
 
     def lock(self):  #Key removed, clear any relevant data
-        self.msg = ""
-        self.mode = m_LOCK
+        self.message.compose_msg = ""
+        self.display.mode = m_LOCK
 
     def auth(self):
-        self.mode = m_AUTH
+        self.display.mode = m_AUTH
 
     def main_menu(self):
-        self.row_index = 0
-        self.mode = m_MAIN_MENU
+        self.display.row_index = 0
+        self.display.mode = m_MAIN_MENU
 
     def create_msg(self, msg):
-        if self.mode != m_COMPOSE and self.mode != m_IDLE:
-            self.msg = msg
-            self.mode = m_COMPOSE
-            self.row_index = 0
-            self.col_index = 0
+        if self.display.mode != m_COMPOSE and self.display.mode != m_IDLE:
+            self.message.compose_msg = msg
+            self.display.mode = m_COMPOSE
+            self.display.row_index = 0
+            self.display.col_index = 0
             return True
         return False
 
@@ -300,115 +133,279 @@ class UI(Thread):
         self.is_idle = False
         print "Pressed UP Key."
         #self.display.key_up()        
-        if self.mode == m_IDLE:
-            self.mode = m_LOCK
-        elif self.mode == m_COMPOSE:
-            if self.row_index == 1:
-                self.row_index = 0
+        if self.display.mode == m_IDLE:
+            self.display.mode = m_LOCK
+        elif self.display.mode == m_COMPOSE:
+            if self.display.row_index == 1:
+                self.display.row_index = 0
             else:
-                self.row_index = -1
-                self.col_index = 0
-        elif self.mode == m_MAIN_MENU:
-            self.row_index -= 1
-            if self.row_index < 0:
-                self.row_index = 0
+                self.display.row_index = -1
+                self.display.col_index = 0
+        elif self.display.mode == m_DIALOG:
+            self.display.dialog_confirmed = True
+        elif self.display.mode == m_MAIN_MENU:
+            self.display.row_index -= 1
+            if self.display.row_index < 0:
+                self.display.row_index = 0
+        elif self.display.mode == m_RECIPIENT_MENU:
+            self.display.row_index -= 1
+            if self.display.row_index < 0:
+                self.display.row_index = 0
+        elif self.display.mode == m_COMPOSE_MENU:
+            self.display.row_index -= 1
+            if self.display.row_index < 0:
+                self.display.row_index = 0
+        elif self.display.mode == m_MSG_VIEWER:
+            self.display.row_index -= 1
+            if self.display.row_index < 0:
+                self.display.row_index = 0
+        elif self.display.mode == m_SYSTEM_MENU:
+            self.display.row_index -= 1
+            if self.display.row_index < 0:
+                self.display.row_index = 0
 
 
     def key_down(self, channel):
         self.is_idle = False
         print "Pressed DOWN Key."
         #self.display.key_down()
-        if self.mode == m_IDLE:
-            self.mode = m_LOCK
-        elif self.mode == m_COMPOSE:
-            self.row_index += 1
-            if self.row_index > 1:
-                self.row_index = 1
-        elif self.mode == m_MAIN_MENU:
-            self.row_index += 1
-            if self.row_index >= len(main_menu):
-                self.row_index = len(main_menu) -1
+        if self.display.mode == m_IDLE:
+            self.display.mode = m_LOCK
+        elif self.display.mode == m_DIALOG:
+            self.display.dialog_confirmed = True
+        elif self.display.mode == m_COMPOSE:
+            self.display.row_index += 1
+            if self.display.row_index > 1:
+                self.display.row_index = 1
+        elif self.display.mode == m_MAIN_MENU:
+            self.display.row_index += 1
+            if self.display.row_index >= len(scr.main_menu):
+                self.display.row_index = len(scr.main_menu) -1
+        elif self.display.mode == m_RECIPIENT_MENU:
+            self.display.row_index += 1
+            if self.display.row_index >= len(scr.recipient_menu):
+                self.display.row_index = len(scr.recipient_menu) -1
+        elif self.display.mode == m_COMPOSE_MENU:
+            self.display.row_index += 1
+            if self.display.row_index >= len(scr.compose_menu):
+                self.display.row_index = len(scr.compose_menu) -1
+        elif self.display.mode == m_MSG_VIEWER:
+            self.display.row_index += 1
+            if self.display.row_index >= len(scr.test_view_msg):
+                self.display.row_index = len(scr.test_view_msg) -1
+        elif self.display.mode == m_SYSTEM_MENU:
+            self.display.row_index += 1
+            if self.display.row_index >= len(scr.system_menu):
+                self.display.row_index = len(scr.system_menu) -1
 
 
     def key_left(self, channel):
         self.is_idle = False
         print "Pressed LEFT Key."
         #self.display.key_left()
-        if self.mode == m_IDLE:
-            self.mode = m_LOCK
-        elif self.mode == m_COMPOSE:
-            self.col_index -= 1
-            if self.row_index == -1:
-                if self.col_index < 0:
-                    self.col_index = 0
-            elif self.col_index < 0:
-                self.col_index = 20
-                if self.row_index == 1:
-                    self.row_index = 0
+        if self.display.mode == m_IDLE:
+            self.display.mode = m_LOCK
+        elif self.display.mode == m_DIALOG:
+            self.display.dialog_confirmed = True
+        elif self.display.mode == m_COMPOSE:
+            self.display.col_index -= 1
+            if self.display.row_index == -1:
+                if self.display.col_index < 0:
+                    self.display.col_index = 0
+            elif self.display.col_index < 0:
+                self.display.col_index = 20
+                if self.display.row_index == 1:
+                    self.display.row_index = 0
                 else:
-                    self.row_index = 1
+                    self.display.row_index = 1
+        elif self.display.mode == m_DIALOG_YESNO:
+            self.display.col_index -= 1
+            if self.display.col_index < 0:
+                self.display.col_index = 0
 
 
     def key_right(self, channel):
         self.is_idle = False
         print "Pressed RIGHT Key."
-        if self.mode == m_IDLE:
-            self.mode = m_LOCK
-        elif self.mode == m_COMPOSE:
-            self.col_index += 1
-            if self.row_index == -1:
-                if self.col_index > 2:
-                    self.col_index = 2
-            elif self.col_index > 20:
-                self.col_index = 0
-                if self.row_index == 0:
-                    self.row_index = 1
+        if self.display.mode == m_IDLE:
+            self.display.mode = m_LOCK
+        elif self.display.mode == m_DIALOG:
+            self.display.dialog_confirmed = True
+        elif self.display.mode == m_COMPOSE:
+            self.display.col_index += 1
+            if self.display.row_index == -1:
+                if self.display.col_index > 3:
+                    self.display.col_index = 3
+            elif self.display.col_index > 20:
+                self.display.col_index = 0
+                if self.display.row_index == 0:
+                    self.display.row_index = 1
                 else:
-                    self.row_index = 0
+                    self.display.row_index = 0
+        elif self.display.mode == m_DIALOG_YESNO:
+            self.display.col_index += 1
+            if self.display.col_index > 1:
+                self.display.col_index = 1
 
-        #self.display.key_right()
 
     def key_enter(self, channel):
         self.is_idle = False
         #self.btn_count = 0
         print "Pressed ENTER Key."
         #self.display.key_enter()
-        if self.mode == m_IDLE:
-            self.mode = m_LOCK
-        elif self.mode == m_COMPOSE:
-            if self.row_index >= 0:
-                index = (self.row_index * 21) + self.col_index
-                self.msg = self.msg + keyboard[index:index+1]
-                #print self.msg
+        if self.display.mode == m_IDLE:
+            self.display.mode = m_LOCK
+        elif self.display.mode == m_DIALOG:
+            self.display.dialog_confirmed = True
+        elif self.display.mode == m_COMPOSE:
+            if self.display.row_index >= 0:
+                index = (self.display.row_index * 21) + self.display.col_index
+                self.message.compose_msg = self.message.compose_msg + keyboard[index:index+1]
+                #print self.message.compose_msg
             else:
-                if self.col_index == 0:
-                    self.message.new_composed_msg(self.msg)
-                elif self.col_index == 1:
-                    self.msg = ""
-                elif self.col_index == 2:
-                    self.msg = ""
+                if self.display.col_index == 0:
+                    self.display.dialog_msg = "Message Sent!"
+                    self.message.new_composed_msg(self.message.compose_msg)
+                    self.display.row_index = 0
+                    self.display.col_index = 0
+                    self.display.mode = m_DIALOG
+                elif self.display.col_index == 1:
+                    self.message.compose_msg += " "
+                elif self.display.col_index == 2:
+                    self.message.compose_msg = ""
+                elif self.display.col_index == 3:
+                    self.message.compose_msg = ""
                     self.main_menu()
-        elif self.mode == m_MAIN_MENU:
-            print "MainMenu Selected: ", main_menu[self.row_index]
-            if self.row_index == 0:
-                self.row_index = 0
-                self.col_index = 0
-                self.mode = m_COMPOSE
-            elif self.row_index == 6:
-                print "Shutting down..."
-                os.system("sudo shutdown -h now")
+        elif self.display.mode == m_RECIPIENT_MENU:
+            self.message.compose_to = scr.recipient_menu[self.display.row_index]
+            print "Composing Msg for: ", self.message.compose_to
+            self.display.row_index = 0
+            self.display.col_index = 0
+            self.display.mode = m_COMPOSE_MENU
+        elif self.display.mode == m_COMPOSE_MENU:
+            self.message.compose_msg = scr.compose_menu[self.display.row_index]
+            print "Pretext Msg: ", self.message.compose_msg
+            self.display.row_index = 0
+            self.display.col_index = 0
+            self.display.mode = m_COMPOSE
+        elif self.display.mode == m_MAIN_MENU:
+            print "MainMenu Selected: ", scr.main_menu[self.display.row_index]
+            if self.display.row_index == 0:
+                self.display.row_index = 0
+                self.display.col_index = 0
+                self.display.mode = m_RECIPIENT_MENU
+            elif self.display.row_index == 1:
+                self.display.row_index = 0
+                self.display.col_index = 0
+                self.display.mode = m_MSG_VIEWER
+            elif self.display.row_index == 3:
+                self.display.row_index = 0
+                self.display.col_index = 0
+                self.display.mode = m_SYSTEM_MENU
+            elif self.display.row_index == 4:
+                self.display.dialog_cmd = cmd_SHUTDOWN
+                self.display.dialog_msg = "Shutdown?"
+                self.display.dialog_msg2 = "Are you not entertained?"
+                self.display.col_index = 0
+                self.display.mode = m_DIALOG_YESNO
+        elif self.display.mode == m_SYSTEM_MENU:
+            print "SystemMenu Selected: ", scr.system_menu[self.display.row_index]
+            if self.display.row_index == 0:     #Update Software
+                self.display.row_index = 0
+                self.display.col_index = 0
+                self.display.dialog_cmd = cmd_SOFTWARE_UPDATE
+                self.display.dialog_msg = "Perform Software Update?"
+                self.display.dialog_msg2 = ""
+                self.display.mode = m_DIALOG_YESNO
+            elif self.display.row_index == 1:   #Import Public Keys
+                self.display.row_index = 0
+                self.display.col_index = 0
+                #self.display.mode = m_MSG_VIEWER
+            elif self.display.row_index == 2:   #Export Public Keys
+                self.display.row_index = 0
+                self.display.col_index = 0
+                #self.display.mode = m_SYSTEM_MENU
+            elif self.display.row_index == 3:   #Generate Keys
+                self.display.row_index = 0
+                self.display.col_index = 0
+                self.display.dialog_cmd = cmd_GEN_KEYSET
+                self.display.dialog_msg = "Gen new Keyset?"
+                self.display.dialog_msg2 = "DATA will be LOST"
+                self.display.dialog_next_mode = m_SYSTEM_MENU
+                self.display.mode = m_DIALOG_YESNO
+            elif self.display.row_index == 4:   #Wipe USB Drive
+                self.display.row_index = 0
+                self.display.col_index = 0
+            elif self.display.row_index == 5:   #Factory Reset
+                self.display.row_index = 0
+                self.display.col_index = 0
+                self.display.dialog_cmd = cmd_FACTORY_RESET
+                self.display.dialog_next_mode = m_SYSTEM_MENU
+                self.display.dialog_msg = "Perform Factory Reset?"
+                self.display.dialog_msg2 = "ALL DATA will be LOST"
+                self.display.mode = m_DIALOG_YESNO
+        elif self.display.mode == m_DIALOG_YESNO:
+            if self.display.col_index == 1:
+                if self.display.dialog_cmd == cmd_SHUTDOWN:
+                    self.display.dialog_msg = "Shutting down..."
+                    self.display.dialog_msg2 = "Have a nice day."
+                    self.display.dialog_task_done = False
+                    self.display.mode = m_DIALOG_TASK
+                    os.system("sudo shutdown -h now")
+                elif self.display.dialog_cmd == cmd_GEN_KEYSET:
+                    self.display.dialog_msg = "Generating Keyset"
+                    self.display.dialog_msg2 = "Please wait..."
+                    self.display.dialog_task_done = False
+                    self.display.dialog_next_mode = m_SYSTEM_MENU
+                    self.display.mode = m_DIALOG_TASK
+                    self.event.wait(0.5)
+                    password = self.crypto.generate_random_password(38)
+                    print len(password)
+                    if self.crypto.gen_keysets(password):
+                        self.yubikey.set_slot1(password)
+                        self.display.dialog_msg = "Keyset Generated!"
+                        self.display.dialog_msg2 = "Test yubikey password"
+                        self.display.dialog_msg3 = "==[Press Yubikey]=="
+                    else: 
+                        self.display.dialog_msg = "Err: Gen Keysets"
+                        self.display.dialog_msg2 = "Keyset Already Exists"
+                        self.display.dialog_msg3 = "==[Press any key]=="
+                        self.display.mode = m_DIALOG
+                    password = "" # Unneccessary!?
+                elif self.display.dialog_cmd == cmd_FACTORY_RESET:
+                    self.display.dialog_msg = "Factory Resetting"
+                    self.display.dialog_msg2 = "Please wait..."
+                    self.display.dialog_task_done = False
+                    self.display.dialog_next_mode = m_SYSTEM_MENU
+                    self.display.mode = m_DIALOG_TASK
+                    self.event.wait(0.5)
+                    self.crypto.wipe_all_keys()
+                    self.display.dialog_msg = "Factory Reset"
+                    self.display.dialog_msg2 = "Complete!"
+                    self.display.dialog_msg3 = "==[Press Anykey]=="
+                    self.display.mode = m_DIALOG
+
+            else:
+                self.display.row_index = 0
+                self.display.col_index = 0
+                self.display.mode = self.display.dialog_next_mode
+                
 
 
     def key_back(self, channel):
         self.is_idle = False
-        self.btn_count += 1
-        print "Pressed BACK Key: ", self.btn_count
-        #self.display.key_back()
-        if self.mode == m_IDLE:
-            self.mode = m_LOCK
-        elif self.mode == m_COMPOSE:
-            self.msg = self.msg[:-1]
-
+        if self.display.mode == m_IDLE:
+            self.display.mode = m_LOCK
+        elif self.display.mode == m_DIALOG:
+            self.display.dialog_confirmed = True
+        elif self.display.mode == m_COMPOSE:
+            self.message.compose_msg = self.message.compose_msg[:-1]
+        else:
+            self.display.row_index = 0
+            self.display.col_index = 0
+            self.display.dialog_next_mode = m_MAIN_MENU
+            self.display.mode = m_MAIN_MENU
+        
 
     def yubikey_status(self,is_present):
         if is_present:
@@ -419,7 +416,21 @@ class UI(Thread):
             self.lock()
             print "Yubikey Removed"
 
-    def yubikey_auth(self, signing_key_passcode, decrypting_key_passcode):
+    def yubikey_auth(self, password):
         #Check password (i.e. attempt to unlock key chain)
         #If pass, then unlock the screen, else show error? or silence??
-        self.main_menu()
+        if self.display.dialog_cmd == cmd_GEN_KEYSET:
+            #If yubkey password unlocks the keyset then
+            self.display.dialog_msg = "Keyset Psw Auth Good!"
+            self.display.dialog_msg2 = ""
+            self.display.dialog_msg3 = "==[Press any key]=="
+            #else if bad
+                #self.display.dialog_msg = "Keyset Psw Auth Failed"
+                #self.display.dialog_msg2 = "Wiping Keys."
+                #self.crypto.wipe_all_keys()
+                #self.display.dialog_msg3 = "==[Press any key]=="
+            self.display.mode = m_DIALOG
+        elif self.display.mode == m_AUTH:
+            print "Checking Yubikey Authentication Password."
+            if self.crypto.authenticate_user(str(password)):
+                self.main_menu()

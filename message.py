@@ -3,6 +3,8 @@
 from threading import *
 import Queue
 
+TEST_MSG = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB123456789012"
+
 class Message(Thread):
     def __init__(self):
         Thread.__init__(self)
@@ -14,6 +16,9 @@ class Message(Thread):
 
         self.msg_seg_list = []
         self.radio_inbound_queue = Queue.Queue() #Should we set a buffer size??
+
+        self.compose_msg = ""
+        self.compose_to = ""
 
         print "Initialized Message Thread."
     
@@ -59,6 +64,9 @@ class Message(Thread):
                 seg1f = self.repeat_msg_list[self.repeat_msg_index][:100]
                 seg2f = self.repeat_msg_list[self.repeat_msg_index][255:355]
                 outbound_data = self.repeat_msg_list[self.repeat_msg_index][510:]
+                print "WHAT: ", outbound_data
+                print "WHAT: ", seg1f
+                print "WHAT: ", seg2f
                 outbound_data += seg1f + seg2f
                 self.repeat_msg_segment += 1
             

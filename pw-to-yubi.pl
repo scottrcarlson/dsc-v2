@@ -59,4 +59,4 @@ my $second = substr($output, 32, 12);
 my $third = substr($output, 44, 32);
 
 # added -2 -y -oappend-cr and removed trailing linefeed
-printf "ykpersonalize -2 -y -oappend-cr -o-static-ticket -oshort-ticket -o-strong-pw1 -o-strong-pw2 -oman-update -ofixed=h:%s -ouid=%s -a%s", $first, $second, $third;
+printf "ykpersonalize -1 -y -oappend-cr -o-static-ticket -oshort-ticket -o-strong-pw1 -o-strong-pw2 -oman-update -ofixed=h:%s -ouid=%s -a%s", $first, $second, $third;

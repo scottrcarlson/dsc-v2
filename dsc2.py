@@ -13,8 +13,9 @@ from gps import Gps
 import iodef
 from message import Message
 from config import Config
+from crypto import Crypto
 
-version = "v0.2.5" 
+version = "v0.2.6" 
 isRunning = True            #Main Thread Control Bit 
 
 radio = None
@@ -28,6 +29,7 @@ def signal_handler(signal, frame): #nicely shut things down
     #gps.stop()
     ui.stop()
     message.stop()
+    display.stop()
     global isRunning
     isRunning = False
     print "Exiting DSCv2..."
@@ -44,7 +46,9 @@ if __name__ == "__main__":
 
     iodef.init()
 
+    crypto = Crypto()
     config = Config()
+
     message = Message()
     message.start()
 
@@ -55,7 +59,10 @@ if __name__ == "__main__":
     #gps = Gps()
     #gps.start()
 
-    ui = UI(message)
+    display = Display()
+    display.start()
+
+    ui = UI(display,message, crypto)
     ui.start()    
 
     while isRunning:
