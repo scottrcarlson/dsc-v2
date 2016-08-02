@@ -10,6 +10,7 @@ import iodef
 import os
 from threading import *
 import screen as scr
+import time
 
 #DISPLAY MODES
 m_IDLE = 0
@@ -25,8 +26,10 @@ m_DIALOG_YESNO = 9
 m_SYSTEM_MENU = 10
 m_DIALOG_TASK = 11
 
+keyboard = "abcdefghijklmnopqrstuvwxyz1234567890!?$%.-"
+
 class Display(Thread):
-    def __init__(self):
+    def __init__(self, message):
         Thread.__init__(self)
         self.event = Event()
         self.reset()
@@ -43,6 +46,8 @@ class Display(Thread):
         self.screen_row_size = 5
         self.viz_min = 0
         self.viz_max = self.screen_row_size
+
+        self.message = message
 
         #Show a Msg for x amount of seconds
         self.dialog_msg = ""
@@ -66,18 +71,22 @@ class Display(Thread):
                 with canvas(self.device) as draw:
                     logo = Image.open('/home/pi/dsc.png')
                     draw.bitmap((0, 20), logo, fill=1)
-                    draw.text((0, 52), '5', font=self.font, fill=255)
                     #draw.text((105, 52), 'SYNC', font=self.font, fill=255)
+                    current_datetime = time.strftime("%Y-%m-%d %H:%M:%S")
+                    draw.text((6, 0), current_datetime, font=self.font, fill=255)
                     draw.text((6, 10), 'dirt   simple  comms', font=self.font, fill=255)
+                    draw.text((0, 52), '5', font=self.font, fill=255)
                     draw.text((35, 52), 'insert key', font=self.font, fill=255)
             #------[AUTH SCREEN]------------------------------------------------------------------$
             elif self.mode == m_AUTH:
                 with canvas(self.device) as draw:
                     logo = Image.open('/home/pi/dsc.png')
                     draw.bitmap((0, 20), logo, fill=1)
-                    draw.text((0, 52), '5', font=self.font, fill=255)
                     #draw.text((105, 52), 'SYNC', font=self.font, fill=255)
+                    current_datetime = time.strftime("%Y-%m-%d %H:%M:%S")
+                    draw.text((6, 0), current_datetime, font=self.font, fill=255)
                     draw.text((6, 10), 'dirt   simple  comms', font=self.font, fill=255)
+                    draw.text((0, 52), '5', font=self.font, fill=255)
                     draw.text((25, 52), 'enter password', font=self.font, fill=255)
             #------[DIALOG]-------------------------------------------------------------------    $
             elif self.mode == m_DIALOG:

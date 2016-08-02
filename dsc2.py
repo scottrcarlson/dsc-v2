@@ -59,7 +59,7 @@ if __name__ == "__main__":
     #gps = Gps()
     #gps.start()
 
-    display = Display()
+    display = Display(message)
     display.start()
 
     ui = UI(display,message, crypto)
