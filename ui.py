@@ -55,9 +55,6 @@ test_msg_thread = [
     "yo!"
 ]
 
-keyboard = "abcdefghijklmnopqrstuvwxyz1234567890!?$%.-"
-
-
 
 class UI(Thread):
     def __init__(self, display, message, crypto):
@@ -265,6 +262,7 @@ class UI(Thread):
             else:
                 if self.display.col_index == 0:
                     self.display.dialog_msg = "Message Sent!"
+                    self.display.dialog_msg3 = "==[Press AnyKey]=="
                     self.message.new_composed_msg(self.message.compose_msg)
                     self.display.row_index = 0
                     self.display.col_index = 0

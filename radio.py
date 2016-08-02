@@ -42,6 +42,9 @@ class Radio(Thread):
         self.mc = ModuleConnection(self.serial_device)
 
         self.reset_radio()
+        print "Radio Parameters:"
+        print self.mc.get_antenna()
+
         GPIO.add_event_detect(iodef.PIN_RADIO_IRQ, GPIO.RISING, callback=self.check_irq, bouncetime=100)
 
         self.address = 0 #get rid of this
@@ -143,7 +146,7 @@ class Radio(Thread):
     def process_outbound_msg(self):
         if self.message.is_msg_avail_to_repeat():
             outbound_data = self.message.get_next_msg_for_repeat()
-            print "Outbound Message Sending: " + outbound_data
+            #print "Outbound Message Sending: " + outbound_data
             self.is_check_outbound = True
             try:
                 r = self.mc._send_command(OPCODES['PKT_SEND_QUEUE'], outbound_data)

@@ -6,17 +6,19 @@ import Queue
 TEST_MSG = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB123456789012"
 
 class Message(Thread):
-    def __init__(self):
+    def __init__(self, crypto):
         Thread.__init__(self)
         self.event = Event()
 
-        self.repeat_msg_list = []
+        self.repeat_msg_list = [TEST_MSG]
         self.repeat_msg_index = 0
         self.repeat_msg_segment = 0
 
         self.msg_seg_list = []
         self.radio_inbound_queue = Queue.Queue() #Should we set a buffer size??
 
+        self.crypto = crypto
+        
         self.compose_msg = ""
         self.compose_to = ""
 
@@ -64,9 +66,9 @@ class Message(Thread):
                 seg1f = self.repeat_msg_list[self.repeat_msg_index][:100]
                 seg2f = self.repeat_msg_list[self.repeat_msg_index][255:355]
                 outbound_data = self.repeat_msg_list[self.repeat_msg_index][510:]
-                print "WHAT: ", outbound_data
-                print "WHAT: ", seg1f
-                print "WHAT: ", seg2f
+                #print "WHAT: ", outbound_data
+                #print "WHAT: ", seg1f
+                #print "WHAT: ", seg2f
                 outbound_data += seg1f + seg2f
                 self.repeat_msg_segment += 1
             
@@ -81,14 +83,16 @@ class Message(Thread):
     def new_composed_msg(self, msg):
         print "Processing new message."
         #Encrypt / Sign and add to the list
-        self.repeat_msg_list.append(msg)
+        e_msg = self.crypto.encrypt_msg(msg, '/dscdata/keys/encr_decr_keypair_pub/')
+        s_msg = self.crypto.sign_msg(e_msg, self.crypto.keyset_password)
+        self.repeat_msg_list.append(s_msg)
 
     def add_msg_to_repeat_list(self,msg):
         #lots of things to do here...
         if not self.check_for_dup(msg):
             self.repeat_msg_list.append(msg)
             print "New Unique Message Received via Radio."
-            print msg
+            #print msg
         else:
             print "Duplicate Message Received via Radio. Dropped"
 
@@ -97,7 +101,7 @@ class Message(Thread):
         if not self.check_for_seg_dup(msg):
             self.msg_seg_list.append(msg)
             print "New Unique Seqment Received ."
-            print msg
+            #print msg
         else:
             print "Duplicate Segment Received via Radio. Dropped"
             
@@ -127,9 +131,9 @@ class Message(Thread):
             if len(mf) == 212:
                 seg1f = mf[12:112]
                 seg2f = mf[112:212]
-                print "Found Finger Print:"
-                print seg1f
-                print seg2f
+                print "Found Finger Print."
+                #print seg1f
+                #print seg2f
                 print "Searching for remaining segments."
             for m in self.msg_seg_list:
                 if len(m) == 255:
@@ -137,12 +141,12 @@ class Message(Thread):
                         seg1_found = True
                         seg1 = m
                         print "Msg Segment 1 Found!"
-                        print seg1
+                        #print seg1
                     elif m[:100] == seg2f:
                         seg2_found = True
                         seg2 = m
                         print "Msg Segment 2 Found!"
-                        print seg2
+                        #print seg2
                 if seg1_found and seg2_found:
                     print "Complete Msg Found!"
                     self.add_msg_to_repeat_list(seg1+seg2+mf[:12])

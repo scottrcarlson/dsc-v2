@@ -27,6 +27,9 @@ mkfs_vfat = Command("mkfs.vfat")
 CHARACTERS_SUPPORTED_BY_YUBIKEY = '0123456789-=[]\;`./+_{}|:"~<>?abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 class Crypto(object):
+    def __init(self):
+        self.keyset_password = ""
+
     # TODO: quantify entropy of these passwords
     # TODO: Notes on improving entropy on rpi linux using broadcom feature?
     def generate_random_password(self, length):
@@ -170,6 +173,7 @@ class Crypto(object):
         reader = keyczar.KeysetPBEJSONFileReader(ENCR_DECR_KEYPAIR_PATH, keyset_password)
         crypter = keyczar.Crypter.Read(reader)
         if crypter != None:
+            self.keyset_password = keyset_password
             return True
         else:
             return False

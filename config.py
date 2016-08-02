@@ -22,7 +22,7 @@ class Config(object):
         except OSError as exception:
             if exception.errno != errno.EEXIST:
                 raise
-        if os.path.isfile(CONFIG_PATH + CONFIG_FILE):
+        if os.path.isfile(CONFIG_PATH + '/' + CONFIG_FILE):
             self.load_config(CONFIG_PATH + '/' + CONFIG_FILE)
         else:
             self.save_config(CONFIG_PATH + '/' + CONFIG_FILE, False)

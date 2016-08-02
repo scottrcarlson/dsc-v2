@@ -15,7 +15,7 @@ from message import Message
 from config import Config
 from crypto import Crypto
 
-version = "v0.2.6" 
+version = "v0.2.7" 
 isRunning = True            #Main Thread Control Bit 
 
 radio = None
@@ -49,7 +49,7 @@ if __name__ == "__main__":
     crypto = Crypto()
     config = Config()
 
-    message = Message()
+    message = Message(crypto)
     message.start()
 
     radio = Radio("/dev/serial0",config, message)    
