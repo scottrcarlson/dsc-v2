@@ -38,6 +38,9 @@ cmd_IMPORT_PUB_KEYS = 4
 cmd_EXPORT_PUB_KEYS = 5
 cmd_WIPE_USB_DRV = 6
 
+keyboard = "abcdefghijklmnopqrstuvwxyz1234567890!?$%.-"
+
+
 view_msg_thread_menu = { # (*) indicates unread messages
     0:"(*)Everyone",
     1:"Doris",
