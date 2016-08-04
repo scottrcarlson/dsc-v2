@@ -32,7 +32,7 @@ class Radio(Thread):
         self.prev_total_exceptions = 0
 
         self.last_tx = time.time()
-        self.tx_throttle = 0.4
+        self.tx_throttle = 0.6
         self.tdma_slot_width = self.config.tx_time + self.config.tx_deadband
         self.tdma_frame = self.tdma_slot_width * self.config.tdma_total_slots
 
