@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import time
 from threading import *
 import Queue
 
@@ -10,7 +10,7 @@ class Message(Thread):
         Thread.__init__(self)
         self.event = Event()
 
-        self.repeat_msg_list = [TEST_MSG]
+        self.repeat_msg_list = []
         self.repeat_msg_index = 0
         self.repeat_msg_segment = 0
 
@@ -59,20 +59,10 @@ class Message(Thread):
                 outbound_data = self.repeat_msg_list[self.repeat_msg_index][:255]
                 self.repeat_msg_segment += 1
             elif self.repeat_msg_segment == 1:
-                outbound_data = self.repeat_msg_list[self.repeat_msg_index][255:510]
+                outbound_data = self.repeat_msg_list[self.repeat_msg_index][255:261]
+                outbound_data += self.repeat_msg_list[self.repeat_msg_index][:200]
                 self.repeat_msg_segment += 1
-            elif self.repeat_msg_segment == 2:
-                #Grab Fingerprint from First 2 Segments
-                seg1f = self.repeat_msg_list[self.repeat_msg_index][:100]
-                seg2f = self.repeat_msg_list[self.repeat_msg_index][255:355]
-                outbound_data = self.repeat_msg_list[self.repeat_msg_index][510:]
-                #print "WHAT: ", outbound_data
-                #print "WHAT: ", seg1f
-                #print "WHAT: ", seg2f
-                outbound_data += seg1f + seg2f
-                self.repeat_msg_segment += 1
-            
-            if self.repeat_msg_segment == 3:
+            if self.repeat_msg_segment == 2:
                 self.repeat_msg_segment = 0
                 self.repeat_msg_index += 1
 
@@ -81,11 +71,16 @@ class Message(Thread):
             return ""
 
     def new_composed_msg(self, msg):
+        #Need to enforce hard limit for cleartext
+        #19 Bytes for timestamp (can save a few bytes with formatting)
+        #214-19=195 msg size limit
         print "Processing new message."
         #Encrypt / Sign and add to the list
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
         e_msg = self.crypto.encrypt_msg(msg, '/dscdata/keys/encr_decr_keypair_pub/')
         s_msg = self.crypto.sign_msg(e_msg, self.crypto.keyset_password)
         self.repeat_msg_list.append(s_msg)
+        return True # TODO Lets capture keyczar error and report back false
 
     def add_msg_to_repeat_list(self,msg):
         #lots of things to do here...
@@ -120,37 +115,24 @@ class Message(Thread):
         return False
         
     def check_for_complete_msgs(self):
-        seg1f = ""  #Part of Encrypted Packet (Fingerprint)
-        seg2f = ""  #Part of Signature Packet (Fingerprint)
-        seg1_found = False
-        seg2_found = False
-        seg1 = ""   #Actual Msg Segment
-        seg2 = ""   #Actual Msg Segment 
+        segf = ""  #Part of Encrypted Packet (Fingerprint?)
+        seg_found = False
+        seg = ""   #Actual Msg Segment
         
         for mf in self.msg_seg_list:
-            if len(mf) == 212:
-                seg1f = mf[12:112]
-                seg2f = mf[112:212]
+            if len(mf) == 206:
+                segf = mf[6:206]
                 print "Found Finger Print."
-                #print seg1f
-                #print seg2f
                 print "Searching for remaining segments."
             for m in self.msg_seg_list:
                 if len(m) == 255:
-                    if m[:100] == seg1f:
-                        seg1_found = True
-                        seg1 = m
-                        print "Msg Segment 1 Found!"
-                        #print seg1
-                    elif m[:100] == seg2f:
-                        seg2_found = True
-                        seg2 = m
-                        print "Msg Segment 2 Found!"
-                        #print seg2
-                if seg1_found and seg2_found:
+                    if m[:200] == segf:
+                        seg_found = True
+                        seg = m
+                        print "Msg Segment Found!"
+                if seg_found:
                     print "Complete Msg Found!"
-                    self.add_msg_to_repeat_list(seg1+seg2+mf[:12])
+                    self.add_msg_to_repeat_list(seg+mf[:6])
                     self.msg_seg_list.remove(mf)
-                    self.msg_seg_list.remove(seg1)
-                    self.msg_seg_list.remove(seg2)
+                    self.msg_seg_list.remove(seg)
                     break
