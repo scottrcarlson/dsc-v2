@@ -59,8 +59,8 @@ class Message(Thread):
                 outbound_data = self.repeat_msg_list[self.repeat_msg_index][:255]
                 self.repeat_msg_segment += 1
             elif self.repeat_msg_segment == 1:
-                outbound_data = self.repeat_msg_list[self.repeat_msg_index][255:261]
-                outbound_data += self.repeat_msg_list[self.repeat_msg_index][:200]
+                outbound_data = self.repeat_msg_list[self.repeat_msg_index][255:348]
+                outbound_data += self.repeat_msg_list[self.repeat_msg_index][:150]
                 self.repeat_msg_segment += 1
             if self.repeat_msg_segment == 2:
                 self.repeat_msg_segment = 0
@@ -78,7 +78,9 @@ class Message(Thread):
         #Encrypt / Sign and add to the list
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
         e_msg = self.crypto.encrypt_msg(msg, '/dscdata/keys/encr_decr_keypair_pub/')
+        print "msg len", len(e_msg)
         s_msg = self.crypto.sign_msg(e_msg, self.crypto.keyset_password)
+        print "msg len", len(s_msg)
         self.repeat_msg_list.append(s_msg)
         return True # TODO Lets capture keyczar error and report back false
 
@@ -120,19 +122,19 @@ class Message(Thread):
         seg = ""   #Actual Msg Segment
         
         for mf in self.msg_seg_list:
-            if len(mf) == 206:
-                segf = mf[6:206]
+            if len(mf) == 243:
+                segf = mf[93:243]
                 print "Found Finger Print."
                 print "Searching for remaining segments."
             for m in self.msg_seg_list:
                 if len(m) == 255:
-                    if m[:200] == segf:
+                    if m[:150] == segf:
                         seg_found = True
                         seg = m
                         print "Msg Segment Found!"
                 if seg_found:
                     print "Complete Msg Found!"
-                    self.add_msg_to_repeat_list(seg+mf[:6])
+                    self.add_msg_to_repeat_list(seg+mf[:93])
                     self.msg_seg_list.remove(mf)
                     self.msg_seg_list.remove(seg)
                     break

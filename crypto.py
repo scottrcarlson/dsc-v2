@@ -143,26 +143,26 @@ class Crypto(object):
     def sign_msg(self, msg, keyset_password):
         reader = keyczar.KeysetPBEJSONFileReader(SIGN_VERI_KEYPAIR_PATH, keyset_password)
         signer = keyczar.Signer.Read(reader) # sender's private signing key
-        signer.set_encoding(signer.NO_ENCODING)
+        #signer.set_encoding(signer.NO_ENCODING)
         signature = signer.Sign(msg)
         return signature
 
     def verify_msg(self, msg, signature, verifying_key_path):
         verifier = keyczar.Verifier.Read(verifying_key_path) # sender's public verifying key
-        verifier.set_encoding(verifier.NO_ENCODING)
+        #verifier.set_encoding(verifier.NO_ENCODING)
         verified = verifier.Verify(msg, signature)
         return verified
 
     def encrypt_msg(self, msg, encr_decr_keypair_pub):
         encrypter = keyczar.Encrypter.Read(encr_decr_keypair_pub) # recipient's public encrypting key
-        encrypter.set_encoding(encrypter.NO_ENCODING)
+        #encrypter.set_encoding(encrypter.NO_ENCODING)
         encrypted_msg = encrypter.Encrypt(msg)
         return encrypted_msg
 
     def decrypt_msg(self, encrypted_msg, keyset_password):
         reader = keyczar.KeysetPBEJSONFileReader(ENCR_DECR_KEYPAIR_PATH, keyset_password)
         crypter = keyczar.Crypter.Read(reader)
-        crypter.set_encoding(crypter.NO_ENCODING)
+        #crypter.set_encoding(crypter.NO_ENCODING)
         decrypted_msg = crypter.Decrypt(encrypted_msg)
         return decrypted_msg
 
