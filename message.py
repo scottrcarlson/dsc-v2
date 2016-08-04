@@ -10,7 +10,7 @@ class Message(Thread):
         Thread.__init__(self)
         self.event = Event()
 
-        self.repeat_msg_list = [TEST_MSG]
+        self.repeat_msg_list = []
         self.repeat_msg_index = 0
         self.repeat_msg_segment = 0
 
