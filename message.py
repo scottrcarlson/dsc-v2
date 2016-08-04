@@ -56,10 +56,10 @@ class Message(Thread):
                 self.repeat_msg_index = 0
                 self.repeat_msg_segment = 0
             if self.repeat_msg_segment == 0:
-                outbound_data = self.repeat_msg_list[self.repeat_msg_index][:255]
+                outbound_data = self.repeat_msg_list[self.repeat_msg_index][:254]
                 self.repeat_msg_segment += 1
             elif self.repeat_msg_segment == 1:
-                outbound_data = self.repeat_msg_list[self.repeat_msg_index][255:348]
+                outbound_data = self.repeat_msg_list[self.repeat_msg_index][254:348]
                 outbound_data += self.repeat_msg_list[self.repeat_msg_index][:150]
                 self.repeat_msg_segment += 1
             if self.repeat_msg_segment == 2:
@@ -103,8 +103,10 @@ class Message(Thread):
             print "Duplicate Segment Received via Radio. Dropped"
             
     def check_for_dup(self,msg):
+        print "Check for dups"
         #Check for duplicates in the repeat msg list, every encrypted msg is unique, no dups allowed!
         for m in self.repeat_msg_list:
+            self.event.wait(0.1)
             if msg == m:
                 return True
         return False
@@ -122,19 +124,19 @@ class Message(Thread):
         seg = ""   #Actual Msg Segment
         
         for mf in self.msg_seg_list:
-            if len(mf) == 243:
-                segf = mf[93:243]
+            if len(mf) == 244:
+                segf = mf[94:244]
                 print "Found Finger Print."
                 print "Searching for remaining segments."
             for m in self.msg_seg_list:
-                if len(m) == 255:
+                if len(m) == 254:
                     if m[:150] == segf:
                         seg_found = True
                         seg = m
                         print "Msg Segment Found!"
                 if seg_found:
                     print "Complete Msg Found!"
-                    self.add_msg_to_repeat_list(seg+mf[:93])
+                    self.add_msg_to_repeat_list(seg+mf[:94])
                     self.msg_seg_list.remove(mf)
                     self.msg_seg_list.remove(seg)
                     break
