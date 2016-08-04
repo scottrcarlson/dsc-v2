@@ -147,6 +147,7 @@ class Radio(Thread):
         if self.message.is_msg_avail_to_repeat():
             outbound_data = self.message.get_next_msg_for_repeat()
             #print "Outbound Message Sending: " + outbound_data
+            print len(outbound_data)
             self.is_check_outbound = True
             try:
                 r = self.mc._send_command(OPCODES['PKT_SEND_QUEUE'], outbound_data)
