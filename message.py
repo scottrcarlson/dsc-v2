@@ -136,6 +136,10 @@ class Message(Thread):
                         print "Msg Segment Found!"
                 if seg_found:
                     print "Complete Msg Found!"
+                    msg = seg+mf[:93]
+                    msg =  self.crypto.verify_msg(msg)
+                    msg = self.crypto.decrypt_msg(msg,self.crypto.keyset_password)
+                    print msg
                     self.add_msg_to_repeat_list(seg+mf[:93])
                     self.msg_seg_list.remove(mf)
                     self.msg_seg_list.remove(seg)
