@@ -11,6 +11,7 @@ CONFIG_FILE = "dsc.config"
 
 class Config(object):
     def __init__(self):
+        self.alias = "ChangeMe"
         self.tdma_slot = 0
         self.tdma_total_slots = 1
         self.tx_time = 4
@@ -32,6 +33,7 @@ class Config(object):
             if not is_exist:
                 print "Generating config file."
                 self.cfg.add_section('Network')
+            self.cfg.set('Network','Alias',self.alias)
             self.cfg.set('Network','TDMA_Slot',self.tdma_slot)
             self.cfg.set('Network','TDMA_Total_Slots',self.tdma_total_slots)
             self.cfg.set('Network','TX_Time',self.tx_time)
@@ -40,6 +42,8 @@ class Config(object):
             
     def load_config(self, cfg_file):
         self.cfg.read(cfg_file)
+        self.alias = self.cfg.get("Network","Alias")
+        print "Config: ", self.alias
         self.tdma_slot = self.cfg.getint("Network","TDMA_Slot")
         self.tdma_total_slots = self.cfg.getint("Network","TDMA_Total_Slots")
         self.tx_time = self.cfg.getint("Network","TX_Time")

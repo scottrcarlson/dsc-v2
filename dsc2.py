@@ -58,7 +58,7 @@ if __name__ == "__main__":
     crypto = Crypto()
     config = Config()
 
-    message = Message(crypto)
+    message = Message(crypto, config)
     message.start()
 
     radio = Radio("/dev/serial0",config, message)    
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     display = Display(message, version)
     display.start()
 
-    ui = UI(display,message, crypto)
+    ui = UI(display,message, crypto, config)
     ui.start()    
 
     while isRunning:

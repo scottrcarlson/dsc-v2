@@ -6,11 +6,10 @@ import Queue
 TEST_MSG = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
 class Message(Thread):
-    def __init__(self, crypto):
+    def __init__(self, crypto, config):
         Thread.__init__(self)
         self.event = Event()
 
-        self.friends = {}
         self.repeat_msg_list = []
         self.repeat_msg_index = 0
         self.repeat_msg_segment = 0
@@ -18,11 +17,14 @@ class Message(Thread):
         self.msg_seg_list = []
         self.radio_inbound_queue = Queue.Queue() #Should we set a buffer size??
 
+        self.config = config
         self.crypto = crypto
         
+        self.friends = []
+        self.build_friend_list()
+
         self.compose_msg = ""
         self.compose_to = ""
-
         print "Initialized Message Thread."
     
     def run(self):
@@ -45,8 +47,9 @@ class Message(Thread):
         print "Stopping Message Thread."
         self.event.set()
 
-    def build friend_list(self):
+    def build_friend_list(self):
         print "Building Friend list"
+        self.friends = self.crypto.get_friend_key_paths(self.config.alias)
 
     def is_msg_avail_to_repeat(self):
         if len(self.repeat_msg_list) > 0:
@@ -92,10 +95,8 @@ class Message(Thread):
         print "Processing new message."
         #Encrypt / Sign and add to the list
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        e_msg = self.crypto.encrypt_msg(msg, '/dscdata/keys/encr_decr_keypair_pub/')
-        print "msg len", len(e_msg)
-        s_msg = self.crypto.sign_msg(e_msg, self.crypto.keyset_password)
-        print "sig len", len(s_msg)
+        e_msg = self.crypto.encrypt_msg(msg, self.config.alias)
+        s_msg = self.crypto.sign_msg(e_msg, self.config.alias)
         self.repeat_msg_list.append(e_msg + s_msg)
         return True # TODO Lets capture keyczar error and report back false
 
@@ -165,16 +166,21 @@ class Message(Thread):
                     print "Complete Msg Found!"
                     msg = str(seg1 + seg2[:6])
                     sig = str(seg2[6:] + mf[:12])
-                    if self.crypto.verify_msg(msg, sig):
-                        print "Known Msg Source"
-                        print self.crypto.decrypt_msg(msg)
-                        msg_complete = seg1 + seg2 + mf[:12]
-                        if not self.check_for_dup(msg_complete):
-                            self.add_msg_to_repeat_list(msg_complete)
+                    # Iterate through public signature keysets
+                    alias_list = self.friends
+                    alias_list.append(self.config.alias)
+                    for alias in alias_list:
+                        if self.crypto.verify_msg(msg, sig, alias):
+                            print "Msg Source: ", alias
+                            print "Msg Recv: ", self.crypto.decrypt_msg(msg, self.config.alias)
+                            msg_complete = seg1 + seg2 + mf[:12]
+                            if not self.check_for_dup(msg_complete):
+                                self.add_msg_to_repeat_list(msg_complete)
+                            else:
+                                print "Duplicate Found, msg dropped."
+                            break
                         else:
-                            print "Duplicate Found, msg dropped."
-                    else:
-                        print "Unknown Msg Source."
+                            print "Msg Not From: ", alias
 
                     self.msg_seg_list.remove(mf)
                     self.msg_seg_list.remove(seg1)

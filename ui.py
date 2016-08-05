@@ -60,7 +60,7 @@ test_msg_thread = [
 
 
 class UI(Thread):
-    def __init__(self, display, message, crypto):
+    def __init__(self, display, message, crypto, config):
         Thread.__init__(self)
         self.event = Event()
 
@@ -74,6 +74,7 @@ class UI(Thread):
         self.display = display
         self.crypto = crypto
         self.message = message
+        self.config = config
         self.yubikey = Yubikey(self.yubikey_status, self.yubikey_auth)
         self.yubikey.start()
         
@@ -432,6 +433,6 @@ class UI(Thread):
                 #self.display.dialog_msg3 = "==[Press any key]=="
             self.display.mode = m_DIALOG
         elif self.display.mode == m_AUTH:
-            print "Checking Yubikey Authentication Password."
-            if self.crypto.authenticate_user(str(password)):
+            print "Checking Yubikey Authentication Password. "
+            if self.crypto.authenticate_user(str(password), self.config.alias):
                 self.main_menu()
