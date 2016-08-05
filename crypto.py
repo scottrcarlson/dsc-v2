@@ -108,6 +108,7 @@ class Crypto(object):
             shutil.rmtree(KEYSET_ROOT_PATH)
         if os.path.isfile(ROOT_PATH + 'dsc.config'):
             os.remove(ROOT_PATH + 'dsc.config')
+        os.makedirs(KEYSET_ROOT_PATH)
 
     def gen_keysets(self, keyset_password, alias):
         print "Generating new keyset"

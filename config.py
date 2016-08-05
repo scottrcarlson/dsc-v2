@@ -24,12 +24,16 @@ class Config(object):
             if exception.errno != errno.EEXIST:
                 raise
         if os.path.isfile(CONFIG_PATH + '/' + CONFIG_FILE):
-            self.load_config(CONFIG_PATH + '/' + CONFIG_FILE)
+            self.load_config()
         else:
-            self.save_config(CONFIG_PATH + '/' + CONFIG_FILE, False)
+            self.save_config(False)
 
-    def save_config(self, cfg_file, is_exist):
-        with open(cfg_file,'w') as cfgfile:
+    def gen_new(self):
+        self.cfg = None
+        self.save_config(False)
+
+    def save_config(self,  is_exist):
+        with open(CONFIG_PATH + '/' + CONFIG_FILE,'w') as cfgfile:
             if not is_exist:
                 print "Generating config file."
                 self.cfg.add_section('Network')
@@ -40,8 +44,8 @@ class Config(object):
             self.cfg.set('Network','TX_Deadband',self.tx_deadband)
             self.cfg.write(cfgfile)
             
-    def load_config(self, cfg_file):
-        self.cfg.read(cfg_file)
+    def load_config(self):
+        self.cfg.read(CONFIG_PATH + '/' + CONFIG_FILE)
         self.alias = self.cfg.get("Network","Alias")
         print "Config: ", self.alias
         self.tdma_slot = self.cfg.getint("Network","TDMA_Slot")

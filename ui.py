@@ -381,7 +381,8 @@ class UI(Thread):
                     self.display.dialog_next_mode = m_SYSTEM_MENU
                     self.display.mode = m_DIALOG_TASK
                     self.event.wait(0.5)
-                    self.crypto.wipe_all_keys()
+                    self.crypto.wipe_all_data()
+                    self.config.gen_new()
                     self.display.dialog_msg = "Factory Reset"
                     self.display.dialog_msg2 = "Complete!"
                     self.display.dialog_msg3 = "==[Press Anykey]=="
