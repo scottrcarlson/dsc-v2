@@ -55,8 +55,8 @@ if __name__ == "__main__":
     version = "r" + get_hg_rev()
     iodef.init()
 
-    crypto = Crypto()
     config = Config()
+    crypto = Crypto(config)
 
     message = Message(crypto, config)
     message.start()
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     #gps = Gps()
     #gps.start()
 
-    display = Display(message, version)
+    display = Display(message, version, config)
     display.start()
 
     ui = UI(display,message, crypto, config)

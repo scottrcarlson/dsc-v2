@@ -25,15 +25,16 @@ m_MSG_VIEWER = 8
 m_DIALOG_YESNO = 9
 m_SYSTEM_MENU = 10
 m_DIALOG_TASK = 11
+m_REG = 12
 
 keyboard = "abcdefghijklmnopqrstuvwxyz1234567890!?$%.-"
 
 class Display(Thread):
-    def __init__(self, message, version):
+    def __init__(self, message, version, config):
         Thread.__init__(self)
         self.event = Event()
         self.reset()
-
+        self.config = config
         self.version = version
     	# TODO: gracefully handle exception when OLED absent
         self.device = sh1106(port=1, address=0x3C)
@@ -237,6 +238,21 @@ class Display(Thread):
                             draw.text((0, 28), ' SND  SPC <CLR> BAIL ', font=self.font, fill=255)
                         elif self.col_index == 3:
                             draw.text((0, 28), ' SND  SPC  CLR <BAIL>' , font=self.font, fill=255)
+          #------[DEVICE REGISTRATION]----------------------------------------------------------------------
+            elif self.mode == m_REG:
+                self.row = 51 + (self.row_index * self.row_height)
+                self.col = self.char_space * self.col_index
+                with canvas(self.device) as draw:
+                    draw.text((0, 0), self.config.alias, font=self.font, fill=255)
+                    draw.line((0, 39, 127, 39), fill=255)
+                    draw.text((0, 40), keyboard[:21], font=self.font, fill=255)
+                    draw.text((0, 52), keyboard[21:], font=self.font, fill=255)
+                    if self.row_index >= 0:
+                        draw.text((0, 28), ' DONE ', font=self.font, fill=255)
+                        draw.line((self.col, self.row, self.char_size+self.col, self.row), fill=255)
+                    else:
+                        if self.col_index == 0:
+                            draw.text((0, 28), '<DONE>', font=self.font, fill=255)
 
           #------[MAIN MENU]----------------------------------------------------------------------
             elif self.mode == m_MAIN_MENU:

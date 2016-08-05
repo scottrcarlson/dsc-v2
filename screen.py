@@ -11,6 +11,11 @@ main_menu = {
     4:"Shutdown System"
 }
 
+recipient_menu = {
+    0: "To Whom?",
+    1: "Boris",
+    2: "Doris",
+}
 system_menu = {
     0:"Update Software",
     1:"Import Keys",
@@ -58,16 +63,6 @@ factory_reset_menu = {
     3:"Yes"
 }
 
-recipient_menu = {
-    0:"Send to whom?",
-    1:"---------------",
-    2:"Everyone",
-    3:"Bob",
-    4:"Joe",
-    5:"Alice",
-    6:"Apeman",
-    7:"Mr X"
-}
 
 compose_menu = {
     0:"Choose:",

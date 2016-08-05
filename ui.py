@@ -28,6 +28,7 @@ m_MSG_VIEWER = 8
 m_DIALOG_YESNO = 9
 m_SYSTEM_MENU = 10
 m_DIALOG_TASK = 11
+m_REG = 12
 
 #DIALOG COMMAND (If Yes is Chosen)
 cmd_SHUTDOWN = 0
@@ -136,7 +137,7 @@ class UI(Thread):
         #self.display.key_up()        
         if self.display.mode == m_IDLE:
             self.display.mode = m_LOCK
-        elif self.display.mode == m_COMPOSE:
+        elif self.display.mode == m_COMPOSE or self.display.mode == m_REG:
             if self.display.row_index == 1:
                 self.display.row_index = 0
             else:
@@ -174,7 +175,7 @@ class UI(Thread):
             self.display.mode = m_LOCK
         elif self.display.mode == m_DIALOG:
             self.display.dialog_confirmed = True
-        elif self.display.mode == m_COMPOSE:
+        elif self.display.mode == m_COMPOSE or self.display.mode == m_REG:
             self.display.row_index += 1
             if self.display.row_index > 1:
                 self.display.row_index = 1
@@ -208,7 +209,7 @@ class UI(Thread):
             self.display.mode = m_LOCK
         elif self.display.mode == m_DIALOG:
             self.display.dialog_confirmed = True
-        elif self.display.mode == m_COMPOSE:
+        elif self.display.mode == m_COMPOSE or self.display.mode == m_REG:
             self.display.col_index -= 1
             if self.display.row_index == -1:
                 if self.display.col_index < 0:
@@ -232,7 +233,7 @@ class UI(Thread):
             self.display.mode = m_LOCK
         elif self.display.mode == m_DIALOG:
             self.display.dialog_confirmed = True
-        elif self.display.mode == m_COMPOSE:
+        elif self.display.mode == m_COMPOSE or self.display.mode == m_REG:
             self.display.col_index += 1
             if self.display.row_index == -1:
                 if self.display.col_index > 3:
@@ -258,6 +259,37 @@ class UI(Thread):
             self.display.mode = m_LOCK
         elif self.display.mode == m_DIALOG:
             self.display.dialog_confirmed = True
+        elif self.display.mode == m_REG:
+            if self.display.row_index >= 0:
+                index = (self.display.row_index * 21) + self.display.col_index
+                if len(self.config.alias) < 12:
+                    self.config.alias = self.config.alias + keyboard[index:index+1]
+            else:
+                if self.display.col_index == 0:
+                    self.display.dialog_msg = "Hello " + self.config.alias + "!"
+                    self.display.row_index = 0
+                    self.display.col_index = 0
+                    self.config.save_config(True)
+                    self.display.dialog_msg2 = "Generating Keyset"
+                    self.display.dialog_msg3 = "Please wait..."
+                    self.display.dialog_task_done = False
+                    self.display.dialog_next_mode = m_MAIN_MENU
+                    self.display.mode = m_DIALOG_TASK
+                    self.event.wait(0.5)
+                    password = self.crypto.generate_random_password(38)
+                    if self.crypto.gen_keysets(password,self.config.alias):
+                        self.yubikey.set_slot1(password)
+                        self.display.dialog_msg = "Keyset Generated!"
+                        self.display.dialog_msg2 = "Test yubikey password"
+                        self.display.dialog_msg3 = "==[Press Yubikey]=="
+                        self.display.dialog_cmd = cmd_GEN_KEYSET
+                    else: 
+                        self.display.dialog_msg = "Err: Gen Keysets"
+                        self.display.dialog_msg2 = "Keyset Already Exists"
+                        self.display.dialog_msg3 = "==[Press any key]=="
+                        self.display.mode = m_DIALOG
+                    password = "" # Unneccessary!?
+
         elif self.display.mode == m_COMPOSE:
             if self.display.row_index >= 0:
                 index = (self.display.row_index * 21) + self.display.col_index
@@ -362,7 +394,6 @@ class UI(Thread):
                     self.display.mode = m_DIALOG_TASK
                     self.event.wait(0.5)
                     password = self.crypto.generate_random_password(38)
-                    print len(password)
                     if self.crypto.gen_keysets(password):
                         self.yubikey.set_slot1(password)
                         self.display.dialog_msg = "Keyset Generated!"
@@ -378,11 +409,10 @@ class UI(Thread):
                     self.display.dialog_msg = "Factory Resetting"
                     self.display.dialog_msg2 = "Please wait..."
                     self.display.dialog_task_done = False
-                    self.display.dialog_next_mode = m_SYSTEM_MENU
+                    self.display.dialog_next_mode = m_AUTH
                     self.display.mode = m_DIALOG_TASK
                     self.event.wait(0.5)
-                    self.crypto.wipe_all_data()
-                    self.config.gen_new()
+                    self.crypto.wipe_all_data(self.config.alias)
                     self.display.dialog_msg = "Factory Reset"
                     self.display.dialog_msg2 = "Complete!"
                     self.display.dialog_msg3 = "==[Press Anykey]=="
@@ -403,6 +433,8 @@ class UI(Thread):
             self.display.dialog_confirmed = True
         elif self.display.mode == m_COMPOSE:
             self.message.compose_msg = self.message.compose_msg[:-1]
+        elif self.display.mode == m_REG:
+            self.config.alias = self.config.alias[:-1]
         else:
             self.display.row_index = 0
             self.display.col_index = 0
@@ -423,17 +455,25 @@ class UI(Thread):
         #Check password (i.e. attempt to unlock key chain)
         #If pass, then unlock the screen, else show error? or silence??
         if self.display.dialog_cmd == cmd_GEN_KEYSET:
-            #If yubkey password unlocks the keyset then
-            self.display.dialog_msg = "Keyset Psw Auth Good!"
-            self.display.dialog_msg2 = ""
-            self.display.dialog_msg3 = "==[Press any key]=="
-            #else if bad
-                #self.display.dialog_msg = "Keyset Psw Auth Failed"
-                #self.display.dialog_msg2 = "Wiping Keys."
-                #self.crypto.wipe_all_keys()
+            self.display.dialog_cmd = ""
+            if self.crypto.authenticate_user(str(password), self.config.alias):
+                self.display.dialog_msg = "Keyset Psw Auth Good!"
+                self.display.dialog_msg2 = ""
+                self.display.dialog_msg3 = "==[Press any key]=="
+            else:
+                self.display.dialog_msg = "Keyset Psw Auth Failed"
+                self.display.dialog_msg2 = "Factory Reset."
+                self.crypto.wipe_all_data(self.config.alias)
                 #self.display.dialog_msg3 = "==[Press any key]=="
             self.display.mode = m_DIALOG
         elif self.display.mode == m_AUTH:
             print "Checking Yubikey Authentication Password. "
+            
             if self.crypto.authenticate_user(str(password), self.config.alias):
                 self.main_menu()
+            else:
+                print self.config.alias
+                if self.config.alias == "unreg":
+                    print "Starting Registration Process."
+                    self.config.alias = ""
+                    self.display.mode = m_REG

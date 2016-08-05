@@ -11,12 +11,11 @@ CONFIG_FILE = "dsc.config"
 
 class Config(object):
     def __init__(self):
-        self.alias = "ChangeMe"
+        self.alias = "unreg"
         self.tdma_slot = 0
         self.tdma_total_slots = 1
         self.tx_time = 4
         self.tx_deadband = 1
-        self.alias = ""
         self.cfg = ConfigParser.ConfigParser()
         try:
             os.makedirs(CONFIG_PATH)

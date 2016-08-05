@@ -27,8 +27,9 @@ mkfs_vfat = Command("mkfs.vfat")
 CHARACTERS_SUPPORTED_BY_YUBIKEY = '0123456789-=[]\;`./+_{}|:"~<>?abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 class Crypto(object):
-    def __init__(self):
+    def __init__(self, config):
         self.keyset_password = ""
+        self.config = config
 
     # TODO: quantify entropy of these passwords
     # TODO: Notes on improving entropy on rpi linux using broadcom feature?
@@ -102,13 +103,13 @@ class Crypto(object):
             mkdir(USB_DRV_PUBKEY_PATH)
         self.unmount_usb_drv()        
 
-    def wipe_all_data(self):
+    def wipe_all_data(self, alias):
         print "Wiping Keys from System."
         if os.path.isdir(KEYSET_ROOT_PATH):
             shutil.rmtree(KEYSET_ROOT_PATH)
-        if os.path.isfile(ROOT_PATH + 'dsc.config'):
-            os.remove(ROOT_PATH + 'dsc.config')
         os.makedirs(KEYSET_ROOT_PATH)
+        self.config.alias = "unreg"
+        self.config.save_config(True)
 
     def gen_keysets(self, keyset_password, alias):
         print "Generating new keyset"
@@ -179,11 +180,12 @@ class Crypto(object):
 
     def authenticate_user(self, keyset_password, alias):
         print "Authenticate ", alias
+        isReg = True
         print KEYSET_ROOT_PATH + alias + '/'
         if not os.path.isdir(KEYSET_ROOT_PATH + alias + '/'):
             #Node has not been configured (Factory State). Probably Temp. We will add a first time sequence
             print "DSC Node has not been configured. This is where we generate keysets."
-            return True
+            return False
         reader = keyczar.KeysetPBEJSONFileReader(KEYSET_ROOT_PATH + alias + '/' + CRYPT_KEY_DIR, keyset_password)
         crypter = keyczar.Crypter.Read(reader)
         if crypter != None:
