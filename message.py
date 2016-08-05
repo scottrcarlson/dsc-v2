@@ -2,6 +2,7 @@
 import time
 from threading import *
 import Queue
+import crypto
 
 TEST_MSG = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
@@ -34,7 +35,8 @@ class Message(Thread):
                 pass
                 #print "Radio Inbound Queue Empty!"
             else:
-                self.add_msg_to_seg_list(msg)
+                if not check_for_seg_dup(msg):
+                    self.add_msg_to_seg_list(msg)
 
             self.check_for_complete_msgs()
             self.event.wait(1)
@@ -59,10 +61,20 @@ class Message(Thread):
                 outbound_data = self.repeat_msg_list[self.repeat_msg_index][:255]
                 self.repeat_msg_segment += 1
             elif self.repeat_msg_segment == 1:
-                outbound_data = self.repeat_msg_list[self.repeat_msg_index][255:348]
-                outbound_data += self.repeat_msg_list[self.repeat_msg_index][:150]
+                outbound_data = self.repeat_msg_list[self.repeat_msg_index][255:510]
                 self.repeat_msg_segment += 1
-            if self.repeat_msg_segment == 2:
+            elif self.repeat_msg_segment == 2:
+                #Grab Fingerprint from First 2 Segments
+                seg1f = self.repeat_msg_list[self.repeat_msg_index][:100]
+                seg2f = self.repeat_msg_list[self.repeat_msg_index][255:355]
+                outbound_data = self.repeat_msg_list[self.repeat_msg_index][510:]
+                #print "WHAT: ", outbound_data
+                #print "WHAT: ", seg1f
+                #print "WHAT: ", seg2f
+                outbound_data += seg1f + seg2f
+                self.repeat_msg_segment += 1
+            
+            if self.repeat_msg_segment == 3:
                 self.repeat_msg_segment = 0
                 self.repeat_msg_index += 1
 
@@ -80,8 +92,8 @@ class Message(Thread):
         e_msg = self.crypto.encrypt_msg(msg, '/dscdata/keys/encr_decr_keypair_pub/')
         print "msg len", len(e_msg)
         s_msg = self.crypto.sign_msg(e_msg, self.crypto.keyset_password)
-        print "msg len", len(s_msg)
-        self.repeat_msg_list.append(s_msg)
+        print "sig len", len(s_msg)
+        self.repeat_msg_list.append(e_msg + s_msg)
         return True # TODO Lets capture keyczar error and report back false
 
     def add_msg_to_repeat_list(self,msg):
@@ -119,28 +131,49 @@ class Message(Thread):
         return False
         
     def check_for_complete_msgs(self):
-        segf = ""  #Part of Encrypted Packet (Fingerprint?)
-        seg_found = False
-        seg = ""   #Actual Msg Segment
+        seg1f = ""  #Part of Encrypted Packet (Fingerprint)
+        seg2f = ""  #Part of Signature Packet (Fingerprint)
+        seg1_found = False
+        seg2_found = False
+        seg1 = ""   #Actual Msg Segment
+        seg2 = ""   #Actual Msg Segment 
         
         for mf in self.msg_seg_list:
-            if len(mf) == 243:
-                segf = mf[93:243]
+            if len(mf) == 212:
+                seg1f = mf[12:112]
+                seg2f = mf[112:212]
                 print "Found Finger Print."
+                #print seg1f
+                #print seg2f
                 print "Searching for remaining segments."
             for m in self.msg_seg_list:
                 if len(m) == 255:
-                    if m[:150] == segf:
-                        seg_found = True
-                        seg = m
-                        print "Msg Segment Found!"
-                if seg_found:
+                    if m[:100] == seg1f:
+                        seg1_found = True
+                        seg1 = m
+                        print "Msg Segment 1 Found!"
+                        #print seg1
+                    elif m[:100] == seg2f:
+                        seg2_found = True
+                        seg2 = m
+                        print "Msg Segment 2 Found!"
+                        #print seg2
+                if seg1_found and seg2_found:
                     print "Complete Msg Found!"
-                    msg = seg+mf[:93]
-                    msg =  self.crypto.verify_msg(msg)
-                    msg = self.crypto.decrypt_msg(msg,self.crypto.keyset_password)
-                    print msg
-                    self.add_msg_to_repeat_list(seg+mf[:93])
+                    msg = seg1 + seg2[:6]
+                    sig = seg2[6:] + mf[:12]
+                    if  self.crypto.verify_msg(msg, sig):
+                        print "Known Msg Source"
+                        print self.crypto.decrypt_msg(msg,self.crypto.keyset_password)
+                        msg_complete = seg1 + seg2 + mf[:12]
+                        if not self.check_for_dup(msg_complete):
+                            self.add_msg_to_repeat_list(msg_complete)
+                        else:
+                            print "Duplicate Found, msg dropped."
+                    else:
+                        print "Unknown Msg Source."
+
                     self.msg_seg_list.remove(mf)
-                    self.msg_seg_list.remove(seg)
+                    self.msg_seg_list.remove(seg1)
+                    self.msg_seg_list.remove(seg2)
                     break
