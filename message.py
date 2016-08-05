@@ -10,6 +10,7 @@ class Message(Thread):
         Thread.__init__(self)
         self.event = Event()
 
+        self.friends = {}
         self.repeat_msg_list = []
         self.repeat_msg_index = 0
         self.repeat_msg_segment = 0
@@ -43,6 +44,9 @@ class Message(Thread):
     def stop(self):
         print "Stopping Message Thread."
         self.event.set()
+
+    def build friend_list(self):
+        print "Building Friend list"
 
     def is_msg_avail_to_repeat(self):
         if len(self.repeat_msg_list) > 0:

@@ -29,10 +29,12 @@ m_DIALOG_TASK = 11
 keyboard = "abcdefghijklmnopqrstuvwxyz1234567890!?$%.-"
 
 class Display(Thread):
-    def __init__(self, message):
+    def __init__(self, message, version):
         Thread.__init__(self)
         self.event = Event()
         self.reset()
+
+        self.version = version
     	# TODO: gracefully handle exception when OLED absent
         self.device = sh1106(port=1, address=0x3C)
         self.font = ImageFont.load_default()
@@ -75,7 +77,7 @@ class Display(Thread):
                     current_datetime = time.strftime("%Y-%m-%d %H:%M:%S")
                     draw.text((6, 0), current_datetime, font=self.font, fill=255)
                     draw.text((6, 10), 'dirt   simple  comms', font=self.font, fill=255)
-                    draw.text((0, 52), '5', font=self.font, fill=255)
+                    draw.text((0, 52), self.version, font=self.font, fill=255)
                     draw.text((35, 52), 'insert key', font=self.font, fill=255)
             #------[AUTH SCREEN]------------------------------------------------------------------$
             elif self.mode == m_AUTH:
@@ -86,7 +88,7 @@ class Display(Thread):
                     current_datetime = time.strftime("%Y-%m-%d %H:%M:%S")
                     draw.text((6, 0), current_datetime, font=self.font, fill=255)
                     draw.text((6, 10), 'dirt   simple  comms', font=self.font, fill=255)
-                    draw.text((0, 52), '5', font=self.font, fill=255)
+                    draw.text((0, 52), self.version, font=self.font, fill=255)
                     draw.text((25, 52), 'enter password', font=self.font, fill=255)
             #------[DIALOG]-------------------------------------------------------------------    $
             elif self.mode == m_DIALOG:

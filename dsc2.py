@@ -14,8 +14,9 @@ import iodef
 from message import Message
 from config import Config
 from crypto import Crypto
+import subprocess
 
-version = "v0.2.7" 
+version = "" 
 isRunning = True            #Main Thread Control Bit 
 
 radio = None
@@ -35,6 +36,14 @@ def signal_handler(signal, frame): #nicely shut things down
     print "Exiting DSCv2..."
     sleep(2)
             
+
+def get_hg_rev():
+    pipe = subprocess.Popen(
+        ["hg", "log", "-l", "1", "--template", "{rev}", '/home/dsc/dsc2'], # node is also available
+        stdout=subprocess.PIPE
+        )
+    return pipe.stdout.read()
+
 if __name__ == "__main__":
     print '+----------------------------+'
     print "+ Dirt Simple Comms 2 " + version + ' +'
@@ -43,7 +52,7 @@ if __name__ == "__main__":
     for sig in (signal.SIGABRT, signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, signal_handler)
 
-
+    version = "r" + get_hg_rev()
     iodef.init()
 
     crypto = Crypto()
@@ -59,7 +68,7 @@ if __name__ == "__main__":
     #gps = Gps()
     #gps.start()
 
-    display = Display(message)
+    display = Display(message, version)
     display.start()
 
     ui = UI(display,message, crypto)

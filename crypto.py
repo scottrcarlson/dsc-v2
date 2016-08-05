@@ -12,11 +12,11 @@ from sh import mkdir
 from sh import cp
 
 ROOT_PATH = '/dscdata/'
-KEYPAIR_ROOT_PATH = ROOT_PATH + 'keys/'
-ENCR_DECR_KEYPAIR_PATH = KEYPAIR_ROOT_PATH + 'encr_decr_keypair'
-ENCR_DECR_KEYPAIR_PUB_PATH = KEYPAIR_ROOT_PATH + 'encr_decr_keypair_pub'
-SIGN_VERI_KEYPAIR_PATH = KEYPAIR_ROOT_PATH + 'sign_veri_keypair'
-SIGN_VERI_KEYPAIR_PUB_PATH = KEYPAIR_ROOT_PATH + 'sign_veri_keypair_pub'
+KEYSET_ROOT_PATH = ROOT_PATH + 'keys/'
+CRYPT_KEY_PATH = KEYSET_ROOT_PATH + 'crypt_key'
+CRYPT_KEY_PUB_PATH = KEYSET_ROOT_PATH + 'crypt_key_pub'
+SIGN_VERI_KEYSET_PATH = KEYSET_ROOT_PATH + 'sig_key'
+SIGN_VERI_KEYSET_PUB_PATH = KEYSET_ROOT_PATH + 'sig_key_pub'
 USB_DRV_PATH = ROOT_PATH + 'usb/'
 USB_DRV_PUBKEY_PATH = USB_DRV_PATH + 'public_keys/'
 USB_DRV_DEVICE_PATH = '/dev/sda1'
@@ -44,6 +44,11 @@ class Crypto(object):
     def inport_keys(self):
         pass
 
+    def get_peer_verifying_key_paths():
+        for item in os.listdir(PEER_PUBKEYS_DIR):
+            print "found peer alias:", item
+            yield PEER_PUBKEYS_DIR + "/" + item + "/sig_key_pub"
+
     def export_keys(self, alias):
         print "device exist?: ", os.path.isdir(USB_DRV_DEVICE_PATH)
         try:
@@ -54,12 +59,12 @@ class Crypto(object):
             mkdir(USB_DRV_PUBKEY_PATH)
         if not os.path.isdir(USB_DRV_PUBKEY_PATH + alias):
             mkdir(USB_DRV_PUBKEY_PATH + alias)
-        print ENCR_DECR_KEYPAIR_PUB_PATH + "/*"
+        print CRYPT_KEY_PUB_PATH + "/*"
         print USB_DRV_PUBKEY_PATH + alias
 
         try:
-            cp('-R', ENCR_DECR_KEYPAIR_PUB_PATH,USB_DRV_PUBKEY_PATH + alias)
-            cp('-R', SIGN_VERI_KEYPAIR_PUB_PATH,USB_DRV_PUBKEY_PATH + alias)
+            cp('-R', CRYPT_KEY_PUB_PATH,USB_DRV_PUBKEY_PATH + alias)
+            cp('-R', SIGN_VERI_KEYSET_PUB_PATH,USB_DRV_PUBKEY_PATH + alias)
         except:
             print "Failed to copy public keys."
         try:
@@ -92,68 +97,68 @@ class Crypto(object):
 
     def wipe_all_data(self):
         print "Wiping Keys from System."
-        if os.path.isdir(KEYPAIR_ROOT_PATH):
-            shutil.rmtree(KEYPAIR_ROOT_PATH)
+        if os.path.isdir(KEYSET_ROOT_PATH):
+            shutil.rmtree(KEYSET_ROOT_PATH)
         if os.path.isfile(ROOT_PATH + 'dsc.config'):
             os.remove(ROOT_PATH + 'dsc.config')
 
     def gen_keysets(self, keyset_password):
         print "Generating new keyset"
         # ensure we're not stomping old keysets
-        if os.path.isdir(ENCR_DECR_KEYPAIR_PATH) or \
-                os.path.isdir(ENCR_DECR_KEYPAIR_PUB_PATH) or\
-                os.path.isdir(SIGN_VERI_KEYPAIR_PATH) or \
-                os.path.isdir(SIGN_VERI_KEYPAIR_PUB_PATH):
-            print "keypair directory(s) already exist. aborting to avoid stomping old keypairs."
+        if os.path.isdir(CRYPT_KEY_PATH) or \
+                os.path.isdir(CRYPT_KEY_PUB_PATH) or\
+                os.path.isdir(SIGN_VERI_KEYSET_PATH) or \
+                os.path.isdir(SIGN_VERI_KEYSET_PUB_PATH):
+            print "keyset directory(s) already exist. aborting to avoid stomping old keysets."
             return False
         else:
-            os.makedirs(ENCR_DECR_KEYPAIR_PATH)
-            os.makedirs(ENCR_DECR_KEYPAIR_PUB_PATH)
-            os.makedirs(SIGN_VERI_KEYPAIR_PATH)
-            os.makedirs(SIGN_VERI_KEYPAIR_PUB_PATH)
+            os.makedirs(CRYPT_KEY_PATH)
+            os.makedirs(CRYPT_KEY_PUB_PATH)
+            os.makedirs(SIGN_VERI_KEYSET_PATH)
+            os.makedirs(SIGN_VERI_KEYSET_PUB_PATH)
             keyset_type = keyczar.KeyczarTool.JSON_FILE
             kt = keyczar.KeyczarTool(keyset_type)
 
-            # create a rsa keypair for encrypting and decrypting
-            kt.CmdCreate(ENCR_DECR_KEYPAIR_PATH, keyczar.KeyPurpose.DECRYPT_AND_ENCRYPT,
-                         "ENCR_DECR_KEYPAIR", keyczar.KeyczarTool.RSA)
-            version = kt.CmdAddKey(ENCR_DECR_KEYPAIR_PATH, keyczar.KeyStatus.ACTIVE, 0,
+            # create a rsa keyset for encrypting and decrypting
+            kt.CmdCreate(CRYPT_KEY_PATH, keyczar.KeyPurpose.DECRYPT_AND_ENCRYPT,
+                         "CRYPT_KEY", keyczar.KeyczarTool.RSA)
+            version = kt.CmdAddKey(CRYPT_KEY_PATH, keyczar.KeyStatus.ACTIVE, 0,
                                keyczar.KeyczarTool.PBE, keyset_password)
-            kt.CmdPromote(ENCR_DECR_KEYPAIR_PATH, version)
+            kt.CmdPromote(CRYPT_KEY_PATH, version)
     
             # export public key
-            kt.CmdPubKey(ENCR_DECR_KEYPAIR_PATH, ENCR_DECR_KEYPAIR_PUB_PATH, keyczar.KeyczarTool.PBE,
+            kt.CmdPubKey(CRYPT_KEY_PATH, CRYPT_KEY_PUB_PATH, keyczar.KeyczarTool.PBE,
                          keyset_password)
 
 
-            # create a rsa keypair for signing and verifying
-            kt.CmdCreate(SIGN_VERI_KEYPAIR_PATH, keyczar.KeyPurpose.SIGN_AND_VERIFY,
-                         "SIGN_VERIF_KEYPAIR", keyczar.KeyczarTool.RSA)
-            version = kt.CmdAddKey(SIGN_VERI_KEYPAIR_PATH, keyczar.KeyStatus.ACTIVE, 0,
+            # create a rsa keyset for signing and verifying
+            kt.CmdCreate(SIGN_VERI_KEYSET_PATH, keyczar.KeyPurpose.SIGN_AND_VERIFY,
+                         "SIGN_VERIF_KEYSET", keyczar.KeyczarTool.RSA)
+            version = kt.CmdAddKey(SIGN_VERI_KEYSET_PATH, keyczar.KeyStatus.ACTIVE, 0,
                                    keyczar.KeyczarTool.PBE, keyset_password)
-            kt.CmdPromote(SIGN_VERI_KEYPAIR_PATH, version)
+            kt.CmdPromote(SIGN_VERI_KEYSET_PATH, version)
 
             # export public key
-            kt.CmdPubKey(SIGN_VERI_KEYPAIR_PATH, SIGN_VERI_KEYPAIR_PUB_PATH, keyczar.KeyczarTool.PBE,
+            kt.CmdPubKey(SIGN_VERI_KEYSET_PATH, SIGN_VERI_KEYSET_PUB_PATH, keyczar.KeyczarTool.PBE,
                          keyset_password)
 
             print "Keyset generation complete."
             return True
 
     def sign_msg(self, msg, keyset_password):
-        reader = keyczar.KeysetPBEJSONFileReader(SIGN_VERI_KEYPAIR_PATH,self.keyset_password)
+        reader = keyczar.KeysetPBEJSONFileReader(SIGN_VERI_KEYSET_PATH,self.keyset_password)
         signer = keyczar.Signer.Read(reader) # sender's private signing key
         signer.set_encoding(signer.NO_ENCODING)
         signature = signer.Sign(msg)
         return signature
 
     def verify_msg(self, msg, signature):
-        verifier = keyczar.Verifier.Read(SIGN_VERI_KEYPAIR_PUB_PATH) # sender's public verifying key
+        verifier = keyczar.Verifier.Read(SIGN_VERI_KEYSET_PUB_PATH) # sender's public verifying key
         verifier.set_encoding(verifier.NO_ENCODING)
         verified = verifier.Verify(msg, signature)
         return verified
 
-    def encrypt_msg(self, msg, encr_decr_keypair_pub):
+    def encrypt_msg(self, msg, crypt_key_pub):
         encrypter = keyczar.Encrypter.Read(encr_decr_keypair_pub) # recipient's public encrypting key
         encrypter.set_encoding(encrypter.NO_ENCODING)
         encrypted_msg = encrypter.Encrypt(msg)
@@ -161,17 +166,17 @@ class Crypto(object):
 
     def decrypt_msg(self, encrypted_msg):
         print "keyset psw: " + self.keyset_password
-        reader = keyczar.KeysetPBEJSONFileReader(ENCR_DECR_KEYPAIR_PATH, self.keyset_password)
+        reader = keyczar.KeysetPBEJSONFileReader(CRYPT_KEY_PATH, self.keyset_password)
         crypter = keyczar.Crypter.Read(reader)
         crypter.set_encoding(crypter.NO_ENCODING)
         decrypted_msg = crypter.Decrypt(encrypted_msg)
         return decrypted_msg
 
     def authenticate_user(self,keyset_password):
-        if not os.path.isdir(KEYPAIR_ROOT_PATH):
+        if not os.path.isdir(KEYSET_ROOT_PATH):
             #Node has not been configured (Factory State). Probably Temp. We will add a first time sequence
             return True
-        reader = keyczar.KeysetPBEJSONFileReader(ENCR_DECR_KEYPAIR_PATH, keyset_password)
+        reader = keyczar.KeysetPBEJSONFileReader(CRYPT_KEY_PATH, keyset_password)
         crypter = keyczar.Crypter.Read(reader)
         if crypter != None:
             self.keyset_password = keyset_password
@@ -209,13 +214,13 @@ if __name__ == '__main__':
 
     print "verifying msg..."
     print datetime.datetime.now()
-    print "verified:", c.verify_msg(test_msg, signature, SIGN_VERI_KEYPAIR_PUB_PATH)
+    print "verified:", c.verify_msg(test_msg, signature, SIGN_VERI_KEYSET_PUB_PATH)
     print datetime.datetime.now()
     print ""
 	
     print "encrypting msg..."
     print datetime.datetime.now()
-    encrypted_msg = c.encrypt_msg(test_msg, ENCR_DECR_KEYPAIR_PUB_PATH)
+    encrypted_msg = c.encrypt_msg(test_msg, CRYPT_KEY_PUB_PATH)
     print datetime.datetime.now()
     print "encrypted_msg:", binascii.hexlify(encrypted_msg)
     print "encrypted_msg len:", len(encrypted_msg)
