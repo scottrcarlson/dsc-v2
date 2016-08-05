@@ -27,7 +27,7 @@ mkfs_vfat = Command("mkfs.vfat")
 CHARACTERS_SUPPORTED_BY_YUBIKEY = '0123456789-=[]\;`./+_{}|:"~<>?abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 class Crypto(object):
-    def __init(self):
+    def __init__(self):
         self.keyset_password = ""
 
     # TODO: quantify entropy of these passwords
@@ -141,14 +141,14 @@ class Crypto(object):
             return True
 
     def sign_msg(self, msg, keyset_password):
-        reader = keyczar.KeysetPBEJSONFileReader(SIGN_VERI_KEYPAIR_PATH, keyset_password)
+        reader = keyczar.KeysetPBEJSONFileReader(SIGN_VERI_KEYPAIR_PATH,self.keyset_password)
         signer = keyczar.Signer.Read(reader) # sender's private signing key
         signer.set_encoding(signer.NO_ENCODING)
         signature = signer.Sign(msg)
         return signature
 
-    def verify_msg(self, msg, signature, verifying_key_path):
-        verifier = keyczar.Verifier.Read(verifying_key_path) # sender's public verifying key
+    def verify_msg(self, msg, signature):
+        verifier = keyczar.Verifier.Read(SIGN_VERI_KEYPAIR_PUB_PATH) # sender's public verifying key
         verifier.set_encoding(verifier.NO_ENCODING)
         verified = verifier.Verify(msg, signature)
         return verified
@@ -159,8 +159,9 @@ class Crypto(object):
         encrypted_msg = encrypter.Encrypt(msg)
         return encrypted_msg
 
-    def decrypt_msg(self, encrypted_msg, keyset_password):
-        reader = keyczar.KeysetPBEJSONFileReader(ENCR_DECR_KEYPAIR_PATH, keyset_password)
+    def decrypt_msg(self, encrypted_msg):
+        print "keyset psw: " + self.keyset_password
+        reader = keyczar.KeysetPBEJSONFileReader(ENCR_DECR_KEYPAIR_PATH, self.keyset_password)
         crypter = keyczar.Crypter.Read(reader)
         crypter.set_encoding(crypter.NO_ENCODING)
         decrypted_msg = crypter.Decrypt(encrypted_msg)

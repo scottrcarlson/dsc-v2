@@ -2,7 +2,6 @@
 import time
 from threading import *
 import Queue
-import crypto
 
 TEST_MSG = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
@@ -35,7 +34,7 @@ class Message(Thread):
                 pass
                 #print "Radio Inbound Queue Empty!"
             else:
-                if not check_for_seg_dup(msg):
+                if not self.check_for_seg_dup(msg):
                     self.add_msg_to_seg_list(msg)
 
             self.check_for_complete_msgs()
@@ -160,11 +159,11 @@ class Message(Thread):
                         #print seg2
                 if seg1_found and seg2_found:
                     print "Complete Msg Found!"
-                    msg = seg1 + seg2[:6]
-                    sig = seg2[6:] + mf[:12]
-                    if  self.crypto.verify_msg(msg, sig):
+                    msg = str(seg1 + seg2[:6])
+                    sig = str(seg2[6:] + mf[:12])
+                    if self.crypto.verify_msg(msg, sig):
                         print "Known Msg Source"
-                        print self.crypto.decrypt_msg(msg,self.crypto.keyset_password)
+                        print self.crypto.decrypt_msg(msg)
                         msg_complete = seg1 + seg2 + mf[:12]
                         if not self.check_for_dup(msg_complete):
                             self.add_msg_to_repeat_list(msg_complete)
