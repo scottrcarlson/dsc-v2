@@ -54,6 +54,7 @@ class Crypto(object):
                 print "found peer alias:", item
                 friends.append(item)
                 #yield PEER_PUBKEYS_DIR + "/" + item + "/sig_key_pub"
+        return friends
 
     def export_keys(self, alias):
         print "device exist?: ", os.path.isdir(USB_DRV_DEVICE_PATH)

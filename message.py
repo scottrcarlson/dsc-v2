@@ -50,6 +50,7 @@ class Message(Thread):
     def build_friend_list(self):
         print "Building Friend list"
         self.friends = self.crypto.get_friend_key_paths(self.config.alias)
+        print "friend list: ", self.friends
 
     def is_msg_avail_to_repeat(self):
         if len(self.repeat_msg_list) > 0:
@@ -167,12 +168,19 @@ class Message(Thread):
                     msg = str(seg1 + seg2[:6])
                     sig = str(seg2[6:] + mf[:12])
                     # Iterate through public signature keysets
-                    alias_list = self.friends
+                    #clean thi us
+                    alias_list = []
+                    for a in self.friends:
+                        alias_list.append(a)
                     alias_list.append(self.config.alias)
                     for alias in alias_list:
                         if self.crypto.verify_msg(msg, sig, alias):
                             print "Msg Source: ", alias
-                            print "Msg Recv: ", self.crypto.decrypt_msg(msg, self.config.alias)
+                            try:
+                                print "Msg Recv: ", self.crypto.decrypt_msg(msg, self.config.alias)
+                            except:
+                                print "Failed to decrypt"
+                            
                             msg_complete = seg1 + seg2 + mf[:12]
                             if not self.check_for_dup(msg_complete):
                                 self.add_msg_to_repeat_list(msg_complete)
