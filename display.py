@@ -138,7 +138,8 @@ class Display(Thread):
                         self.viz_max = self.row_index + 1
                         self.viz_min = self.viz_max - self.screen_row_size
                     #print "Row Index: ", self.row_index, " Viz_Min:", self.viz_min, " Viz_Max:", self.viz_max
-                    for i in range(self.viz_min,self.viz_max):
+                    #for i in range(self.viz_min,self.viz_max):
+                    for i in range(0,2):
                         draw.text((20, 4+( (i-self.viz_min) * self.row_height) ), scr.recipient_menu[i], font=self.font, fill=255)
                     draw.line((121,60,124,63), fill=255)
                     draw.line((124,63,127,60), fill=255)
@@ -205,13 +206,14 @@ class Display(Thread):
                         self.viz_max = self.row_index + 1
                         self.viz_min = self.viz_max - self.screen_row_size
                     #print "Row Index: ", self.row_index, " Viz_Min:", self.viz_min, " Viz_Max:", self.viz_max
-                    if len(scr.test_view_msg) < self.viz_max:
-                        max = len(scr.test_view_msg)
+                    if len(self.message.get_msg_thread()) < self.viz_max:
+                        max = len(self.message.get_msg_thread())
                     else:
                         max = self.viz_max
-
+                    #print "viz min:",self.viz_min
+                    #print "viz max:",max
                     for i in range(self.viz_min,max):
-                        draw.text((20, 4+( (i-self.viz_min) * self.row_height) ), scr.test_view_msg[i], font=self.font, fill=255)
+                        draw.text((20, 4+( (i-self.viz_min) * self.row_height) ), self.message.get_msg_thread()[i], font=self.font, fill=255)
                     draw.line((121,60,124,63), fill=255)
                     draw.line((124,63,127,60), fill=255)
 

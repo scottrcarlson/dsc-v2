@@ -9,7 +9,11 @@ class Message(Thread):
     def __init__(self, crypto, config):
         Thread.__init__(self)
         self.event = Event()
+        
+        self.auth = False
 
+        self.cleartext_msg_thread = []
+        self.msg_thread = []
         self.repeat_msg_list = []
         self.repeat_msg_index = 0
         self.repeat_msg_segment = 0
@@ -41,11 +45,37 @@ class Message(Thread):
                     self.add_msg_to_seg_list(msg)
 
             self.check_for_complete_msgs()
+            if self.auth:
+                self.decrypt_msg_thread(self.friends[0]) #demo labs hack
             self.event.wait(1)
 
     def stop(self):
         print "Stopping Message Thread."
         self.event.set()
+
+    def get_msg_thread(self):
+        #look up by alias to return the associate msg thread
+        return self.cleartext_msg_thread
+
+    def decrypt_msg_thread(self, alias):
+        #pass alias, and decrypt thread make available for viewing
+        print "clearmsg: ", len(self.cleartext_msg_thread)
+        print "cmsg: ", len(self.msg_thread)
+        if len(self.msg_thread) != (len(self.cleartext_msg_thread) / 3):
+            print "Decrypting thread for viewing pleasure..."
+            tmp_cleartext = []
+            for cypher_msg in self.msg_thread:
+               
+                try:
+                    clear_msg = self.crypto.decrypt_msg(cypher_msg, self.config.alias)
+                    tmp_cleartext.append(alias + "  (ttd)")
+                    tmp_cleartext.append("orig timestamp here")
+                    tmp_cleartext.append(clear_msg)
+                    del(clear_msg) # del from mem, is this good enough. research
+                except:
+                    print "Failed to decrypt"
+            self.cleartext_msg_thread = tmp_cleartext
+            #del(tmp_cleartext)
 
     def build_friend_list(self):
         print "Building Friend list"
@@ -96,7 +126,7 @@ class Message(Thread):
         print "Processing new message."
         #Encrypt / Sign and add to the list
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        e_msg = self.crypto.encrypt_msg(msg, self.config.alias)
+        e_msg = self.crypto.encrypt_msg(msg, "boris")#self.config.alias)
         s_msg = self.crypto.sign_msg(e_msg, self.config.alias)
         self.repeat_msg_list.append(e_msg + s_msg)
         return True # TODO Lets capture keyczar error and report back false
@@ -122,10 +152,16 @@ class Message(Thread):
     def check_for_dup(self,msg):
         print "Check for dups"
         #Check for duplicates in the repeat msg list, every encrypted msg is unique, no dups allowed!
+        
         for m in self.repeat_msg_list:
             self.event.wait(0.1)
             if msg == m:
                 return True
+        for m in self.msg_thread:
+            self.event.wait(0.1)
+            if msg == m:
+                return True
+
         return False
 
     def check_for_seg_dup(self,msg):
@@ -150,7 +186,7 @@ class Message(Thread):
                 print "Found Finger Print."
                 #print seg1f
                 #print seg2f
-                print "Searching for remaining segments."
+                #print "Searching for remaining segments."
             for m in self.msg_seg_list:
                 if len(m) == 255:
                     if m[:100] == seg1f:
@@ -175,22 +211,35 @@ class Message(Thread):
                     alias_list.append(self.config.alias)
                     for alias in alias_list:
                         if self.crypto.verify_msg(msg, sig, alias):
+                            is_for_me = False
                             print "Msg Source: ", alias
-                            try:
-                                print "Msg Recv: ", self.crypto.decrypt_msg(msg, self.config.alias)
-                            except:
-                                print "Failed to decrypt"
+                            if self.auth:
+                                try:
+                                    clear_msg = self.crypto.decrypt_msg(msg, self.config.alias)
+                                    print "Msg Recv: ", clear_msg
+                                    clear_msg = "" # del from mem, is this good enough. research
+                                    is_for_me = True
+                                except:
+                                    print "Failed to decrypt"
                             
                             msg_complete = seg1 + seg2 + mf[:12]
-                            if not self.check_for_dup(msg_complete):
-                                self.add_msg_to_repeat_list(msg_complete)
+                            if not self.check_for_dup(msg_complete) and not self.check_for_dup(msg):
+                                print "not a dup ********************"
+                                if is_for_me:
+                                    self.msg_thread.append(msg)
+                                else:
+                                    self.msg_thread.append(msg) # demo labs hack
+                                    self.add_msg_to_repeat_list(msg_complete)
                             else:
                                 print "Duplicate Found, msg dropped."
                             break
                         else:
                             print "Msg Not From: ", alias
 
-                    self.msg_seg_list.remove(mf)
-                    self.msg_seg_list.remove(seg1)
-                    self.msg_seg_list.remove(seg2)
+                    try:
+                        self.msg_seg_list.remove(mf)
+                        self.msg_seg_list.remove(seg1)
+                        self.msg_seg_list.remove(seg2)
+                    except:
+                        print "WHY, FIXME YOU ASS"
                     break

@@ -449,6 +449,7 @@ class UI(Thread):
         else:
             #Perform System Wipe (Lock keys, wipe any user data from memory)
             self.lock()
+            self.message.auth = False
             print "Yubikey Removed"
 
     def yubikey_auth(self, password):
@@ -471,6 +472,7 @@ class UI(Thread):
             
             if self.crypto.authenticate_user(str(password), self.config.alias):
                 self.main_menu()
+                self.message.auth = True
             else:
                 print self.config.alias
                 if self.config.alias == "unreg":

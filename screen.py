@@ -13,9 +13,9 @@ main_menu = {
 
 recipient_menu = {
     0: "To Whom?",
-    1: "Boris",
-    2: "Doris",
+    1: "Boris"   
 }
+
 system_menu = {
     0:"Update Software",
     1:"Import Keys",
