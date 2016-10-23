@@ -11,10 +11,6 @@ main_menu = {
     4:"Shutdown System"
 }
 
-recipient_menu = {
-    0: "To Whom?",
-    1: "Boris"   
-}
 
 system_menu = {
     0:"Update Software",

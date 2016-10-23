@@ -83,21 +83,17 @@ class UI(Thread):
 
         self.lock()
         print "Initialized UI Thread."
-    
+            
     def run(self):
         self.event.wait(1)
         while not self.event.is_set():
-            #print "Handling UI Stuff"
-            
-            # Rework Idle Screen.. Can't be blocking!!
-            #self.event.wait(5)
-            #if self.is_idle:
-            #    self.idle()
-            #    self.is_idle = False
-            #else:
-            #    self.is_idle = True
+            if self.is_idle:
+                self.idle()
+                self.is_idle = False
+            else:
+                self.is_idle = True
 
-            self.event.wait(1)
+            self.event.wait(5)
 
     def stop(self):
         print "Stopping UI Thread."
@@ -185,8 +181,8 @@ class UI(Thread):
                 self.display.row_index = len(scr.main_menu) -1
         elif self.display.mode == m_RECIPIENT_MENU:
             self.display.row_index += 1
-            if self.display.row_index >= len(scr.recipient_menu):
-                self.display.row_index = len(scr.recipient_menu) -1
+            if self.display.row_index >= len(self.message.friends):
+                self.display.row_index = len(self.message.friends) -1
         elif self.display.mode == m_COMPOSE_MENU:
             self.display.row_index += 1
             if self.display.row_index >= len(scr.compose_menu):
@@ -311,7 +307,7 @@ class UI(Thread):
                     self.message.compose_msg = ""
                     self.main_menu()
         elif self.display.mode == m_RECIPIENT_MENU:
-            self.message.compose_to = scr.recipient_menu[self.display.row_index]
+            self.message.compose_to = self.message.friends[self.display.row_index]
             print "Composing Msg for: ", self.message.compose_to
             self.display.row_index = 0
             self.display.col_index = 0
@@ -448,6 +444,7 @@ class UI(Thread):
             self.auth()
         else:
             #Perform System Wipe (Lock keys, wipe any user data from memory)
+            #Clear Friend List
             self.lock()
             self.message.auth = False
             print "Yubikey Removed"
@@ -473,6 +470,7 @@ class UI(Thread):
             if self.crypto.authenticate_user(str(password), self.config.alias):
                 self.main_menu()
                 self.message.auth = True
+                self.message.build_friend_list()
             else:
                 print self.config.alias
                 if self.config.alias == "unreg":

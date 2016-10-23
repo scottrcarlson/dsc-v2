@@ -25,7 +25,6 @@ class Message(Thread):
         self.crypto = crypto
         
         self.friends = []
-        self.build_friend_list()
 
         self.compose_msg = ""
         self.compose_to = ""
@@ -45,6 +44,7 @@ class Message(Thread):
                     self.add_msg_to_seg_list(msg)
 
             self.check_for_complete_msgs()
+            
             if self.auth:
                 self.decrypt_msg_thread(self.friends[0]) #demo labs hack
             self.event.wait(1)

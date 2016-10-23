@@ -113,7 +113,7 @@ class Yubikey(Thread):
                                 # Print it all out!
                                 if(data.scancode == 28):
                                     print "Received Yubikey Input"
-                                    print self.yubikey_input
+                                    #print self.yubikey_input
                                     self.yubikey_auth(self.yubikey_input)
                                     self.yubikey_input = ''              
                 except:
