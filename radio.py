@@ -7,7 +7,7 @@ from ll_ifc import ModuleConnection, OPCODES
 import sys, time, binascii, struct, os
 import RPi.GPIO as GPIO
 import datetime
-from threading import * 
+from threading import *
 import iodef
 from time import sleep
 import time
@@ -32,7 +32,7 @@ class Radio(Thread):
         self.prev_total_exceptions = 0
 
         self.last_tx = time.time()
-        self.tx_throttle = 0.4
+        self.tx_throttle = 1
         self.tdma_slot_width = self.config.tx_time + self.config.tx_deadband
         self.tdma_frame = self.tdma_slot_width * self.config.tdma_total_slots
 
@@ -49,14 +49,14 @@ class Radio(Thread):
 
         self.address = 0 #get rid of this
         print "Initialized Radio Thread."
-
+        
 
     def run(self):
         self.event.wait(1)
         last_checked_tdma = time.time()
         transmit_ok = False
         while not self.event.is_set():
-            
+
             self.event.wait(0.05)
 
             if self.is_check_inbound and not transmit_ok:# and not is_check_outbound:
@@ -69,7 +69,8 @@ class Radio(Thread):
                 self.prev_total_sent = self.total_sent
                 self.prev_total_recv = self.total_recv
                 self.prev_total_exceptions = self.total_exceptions
-                print "== Sent: [",self.total_sent,"]  Recvd:[",self.total_recv,"] Radio Exceptions:[",self.total_exceptions,"] =="
+
+                #print "== Sent: [",self.total_sent,"]  Recvd:[",self.total_recv,"] Radio Exceptions:[",self.total_exceptions,"] =="
 
             if (time.time() - last_checked_tdma) > 0.5: #Check to see if our TDMA Slot is Active
                 last_checked_tdma = time.time()
@@ -80,13 +81,18 @@ class Radio(Thread):
                 slot_end = slot_start + self.tdma_slot_width
 
                 if (epoch > slot_start and epoch < (slot_end - self.config.tx_deadband)):
-                    #print "SLOT: ", slot, " Enable TX"
+                    #print "Radio Enable TX"
+                    if not transmit_ok:
+                        print "== [TX] Sent: [",self.total_sent,"]  Recvd:[",self.total_recv,"] Radio Exceptions:[",self.total_exceptions,"] =="
                     transmit_ok = True
                 else:
-                    #print "SLOT: ", slot, " Disable TX"
+                    #print "Radio Disable TX"
+                    if transmit_ok:
+                        print "== [RX] Sent: [",self.total_sent,"]  Recvd:[",self.total_recv,"] Radio Exceptions:[",self.total_exceptions,"] =="
                     transmit_ok = False
 
-            
+
+
     def stop(self):
         print "Stopping Radio Thread."
         self.event.set()
@@ -121,7 +127,7 @@ class Radio(Thread):
 
                 (rssi, ) = struct.unpack_from('<h', bytes(received_data[:2]))
                 snr = received_data[2] / 4.0
-                
+
                 self.message.radio_inbound_queue.put_nowait(msg)
                 if self.radio_verbose > 1:
                     print "[START]--------------------------"
@@ -147,7 +153,7 @@ class Radio(Thread):
         if self.message.is_msg_avail_to_repeat():
             outbound_data = self.message.get_next_msg_for_repeat()
             #print "Outbound Message Sending: " + outbound_data
-            print len(outbound_data)
+            #print len(outbound_data)
             self.is_check_outbound = True
             try:
                 r = self.mc._send_command(OPCODES['PKT_SEND_QUEUE'], outbound_data)
@@ -186,7 +192,7 @@ class Radio(Thread):
                     self.set_radio_recv_mode()
                     self.is_check_outbound = False
                     self.total_sent += 1
-    
+
                 if "RESET" in irq_flags:
                     pass
 
@@ -220,4 +226,3 @@ class Radio(Thread):
         except Exception, e:
             if self.radio_verbose > 0:
                 print "EXCEPTION: CLEAR_IRQ_FLAGS: ", e
-

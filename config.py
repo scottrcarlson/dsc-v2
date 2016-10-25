@@ -1,6 +1,6 @@
 #!/usr/bin/python
-# --------------------------------------- 
-# --- Dirt Simple Comms GLobals         
+# ---------------------------------------
+# --- Dirt Simple Comms GLobals
 #----------------------------------------
 import ConfigParser
 import os
@@ -42,12 +42,12 @@ class Config(object):
             self.cfg.set('Network','TX_Time',self.tx_time)
             self.cfg.set('Network','TX_Deadband',self.tx_deadband)
             self.cfg.write(cfgfile)
-            
+
     def load_config(self):
         self.cfg.read(CONFIG_PATH + '/' + CONFIG_FILE)
         self.alias = self.cfg.get("Network","Alias")
         print "Config: ", self.alias
         self.tdma_slot = self.cfg.getint("Network","TDMA_Slot")
         self.tdma_total_slots = self.cfg.getint("Network","TDMA_Total_Slots")
-        self.tx_time = self.cfg.getint("Network","TX_Time")
-        self.tx_deadband = self.cfg.getint("Network","TX_Deadband")
+        self.tx_time = self.cfg.getfloat("Network","TX_Time")
+        self.tx_deadband = self.cfg.getfloat("Network","TX_Deadband")

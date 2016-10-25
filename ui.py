@@ -78,12 +78,12 @@ class UI(Thread):
         self.config = config
         self.yubikey = Yubikey(self.yubikey_status, self.yubikey_auth)
         self.yubikey.start()
-        
+
         self.is_idle = False
 
         self.lock()
         print "Initialized UI Thread."
-            
+
     def run(self):
         self.event.wait(1)
         while not self.event.is_set():
@@ -129,8 +129,8 @@ class UI(Thread):
 
     def key_up(self, channel):
         self.is_idle = False
-        print "Pressed UP Key."
-        #self.display.key_up()        
+
+        #self.display.key_up()
         if self.display.mode == m_IDLE:
             self.display.mode = m_LOCK
         elif self.display.mode == m_COMPOSE or self.display.mode == m_REG:
@@ -165,7 +165,7 @@ class UI(Thread):
 
     def key_down(self, channel):
         self.is_idle = False
-        print "Pressed DOWN Key."
+        ##print "pressed DOWN Key."
         #self.display.key_down()
         if self.display.mode == m_IDLE:
             self.display.mode = m_LOCK
@@ -199,7 +199,7 @@ class UI(Thread):
 
     def key_left(self, channel):
         self.is_idle = False
-        print "Pressed LEFT Key."
+        ##print "pressed LEFT Key."
         #self.display.key_left()
         if self.display.mode == m_IDLE:
             self.display.mode = m_LOCK
@@ -224,7 +224,7 @@ class UI(Thread):
 
     def key_right(self, channel):
         self.is_idle = False
-        print "Pressed RIGHT Key."
+        ##print "pressed RIGHT Key."
         if self.display.mode == m_IDLE:
             self.display.mode = m_LOCK
         elif self.display.mode == m_DIALOG:
@@ -249,7 +249,7 @@ class UI(Thread):
     def key_enter(self, channel):
         self.is_idle = False
         #self.btn_count = 0
-        print "Pressed ENTER Key."
+        ###print "pressed ENTER Key."
         #self.display.key_enter()
         if self.display.mode == m_IDLE:
             self.display.mode = m_LOCK
@@ -273,13 +273,19 @@ class UI(Thread):
                     self.display.mode = m_DIALOG_TASK
                     self.event.wait(0.5)
                     password = self.crypto.generate_random_password(38)
-                    if self.crypto.gen_keysets(password,self.config.alias):
+                    sig_pass =str(password)[:len(password)/2]
+                    crypt_pass = str(password)[len(password)/2:]
+                    print "Password len:",len(password)
+                    print "Yubikey psw: ", password
+                    print "Crypt psw: ", crypt_pass
+                    print "Sig psw: ", sig_pass
+                    if self.crypto.gen_keysets(crypt_pass,sig_pass,self.config.alias):
                         self.yubikey.set_slot1(password)
                         self.display.dialog_msg = "Keyset Generated!"
                         self.display.dialog_msg2 = "Test yubikey password"
                         self.display.dialog_msg3 = "==[Press Yubikey]=="
                         self.display.dialog_cmd = cmd_GEN_KEYSET
-                    else: 
+                    else:
                         self.display.dialog_msg = "Err: Gen Keysets"
                         self.display.dialog_msg2 = "Keyset Already Exists"
                         self.display.dialog_msg3 = "==[Press any key]=="
@@ -295,7 +301,7 @@ class UI(Thread):
                 if self.display.col_index == 0:
                     self.display.dialog_msg = "Message Sent!"
                     self.display.dialog_msg3 = "==[Press AnyKey]=="
-                    self.message.new_composed_msg(self.message.compose_msg)
+                    self.message.process_composed_msg(self.message.compose_msg, self.message.compose_to)
                     self.display.row_index = 0
                     self.display.col_index = 0
                     self.display.mode = m_DIALOG
@@ -390,12 +396,18 @@ class UI(Thread):
                     self.display.mode = m_DIALOG_TASK
                     self.event.wait(0.5)
                     password = self.crypto.generate_random_password(38)
-                    if self.crypto.gen_keysets(password):
+                    sig_pass =str(password)[:len(password)/2]
+                    crypt_pass = str(password)[len(password)/2:]
+                    print "Password len:",len(password)
+                    print "Yubikey psw: ", password
+                    print "Crypt psw: ", crypt_pass
+                    print "Sig psw: ", sig_pass
+                    if self.crypto.gen_keysets(crypt_pass,sig_pass,self.config.alias):
                         self.yubikey.set_slot1(password)
                         self.display.dialog_msg = "Keyset Generated!"
                         self.display.dialog_msg2 = "Test yubikey password"
                         self.display.dialog_msg3 = "==[Press Yubikey]=="
-                    else: 
+                    else:
                         self.display.dialog_msg = "Err: Gen Keysets"
                         self.display.dialog_msg2 = "Keyset Already Exists"
                         self.display.dialog_msg3 = "==[Press any key]=="
@@ -418,7 +430,7 @@ class UI(Thread):
                 self.display.row_index = 0
                 self.display.col_index = 0
                 self.display.mode = self.display.dialog_next_mode
-                
+
 
 
     def key_back(self, channel):
@@ -436,7 +448,7 @@ class UI(Thread):
             self.display.col_index = 0
             self.display.dialog_next_mode = m_MAIN_MENU
             self.display.mode = m_MAIN_MENU
-        
+
 
     def yubikey_status(self,is_present):
         if is_present:
@@ -446,6 +458,7 @@ class UI(Thread):
             #Perform System Wipe (Lock keys, wipe any user data from memory)
             #Clear Friend List
             self.lock()
+            self.crypto.keyset_password_crypt = ''
             self.message.auth = False
             print "Yubikey Removed"
 
@@ -454,7 +467,13 @@ class UI(Thread):
         #If pass, then unlock the screen, else show error? or silence??
         if self.display.dialog_cmd == cmd_GEN_KEYSET:
             self.display.dialog_cmd = ""
-            if self.crypto.authenticate_user(str(password), self.config.alias):
+            sig_pass =str(password)[:len(password)/2]
+            crypt_pass =str(password)[len(password)/2:]
+            print "Password len:",len(password)
+            print "Yubikey psw: ", password
+            print "Crypt psw: ", crypt_pass
+            print "Sig psw: ", sig_pass
+            if self.crypto.authenticate_user(crypt_pass, sig_pass, self.config.alias):
                 self.display.dialog_msg = "Keyset Psw Auth Good!"
                 self.display.dialog_msg2 = ""
                 self.display.dialog_msg3 = "==[Press any key]=="
@@ -466,10 +485,16 @@ class UI(Thread):
             self.display.mode = m_DIALOG
         elif self.display.mode == m_AUTH:
             print "Checking Yubikey Authentication Password. "
-            
-            if self.crypto.authenticate_user(str(password), self.config.alias):
+            sig_pass =str(password)[:len(password)/2]
+            crypt_pass =str(password)[len(password)/2:]
+            print "Password len:",len(password)
+            print "Yubikey psw: ", password
+            print "Crypt psw: ", crypt_pass
+            print "Sig psw: ", sig_pass
+            if self.crypto.authenticate_user(crypt_pass, sig_pass, self.config.alias):
                 self.main_menu()
                 self.message.auth = True
+                self.message.sig_auth = True
                 self.message.build_friend_list()
             else:
                 print self.config.alias

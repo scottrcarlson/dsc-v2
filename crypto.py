@@ -28,7 +28,8 @@ CHARACTERS_SUPPORTED_BY_YUBIKEY = '0123456789-=[]\;`./+_{}|:"~<>?abcdefghijklmno
 
 class Crypto(object):
     def __init__(self, config):
-        self.keyset_password = ""
+        self.keyset_password_sig = ""
+        self.keyset_password_crypt = ""
         self.config = config
 
     # TODO: quantify entropy of these passwords
@@ -84,14 +85,14 @@ class Crypto(object):
         try:
             mount(USB_DRV_DEVICE_PATH, USB_DRV_PATH)
         except:
-            print "Failed to mount, Drive mounted or does not exist"            
+            print "Failed to mount, Drive mounted or does not exist"
 
     def unmount_usb_drv(self):
         try:
             umount(USB_DRV_PATH)
         except:
             print "Failed to unmount. Drive not mounted?"
-        
+
     def prepare_usb_drv(self):      # Unmount / Format / Create Directory Structure
         self.unmount_usb_drv()
         try:
@@ -101,7 +102,7 @@ class Crypto(object):
         self.mount_usb_drv()
         if not os.path.isdir(USB_DRV_PUBKEY_PATH):
             mkdir(USB_DRV_PUBKEY_PATH)
-        self.unmount_usb_drv()        
+        self.unmount_usb_drv()
 
     def wipe_all_data(self, alias):
         print "Wiping Keys from System."
@@ -111,13 +112,16 @@ class Crypto(object):
         self.config.alias = "unreg"
         self.config.save_config(True)
 
-    def gen_keysets(self, keyset_password, alias):
+    def gen_keysets(self, keyset_password_crypt, keyset_password_sig, alias):
         print "Generating new keyset"
         # ensure we're not stomping old keysets
         if os.path.isdir(KEYSET_ROOT_PATH + alias):
             print "keyset directory(s) already exist. aborting to avoid stomping old keysets."
             return False
         else:
+            print "Generating Keys with:"
+            print "Crypt Pass:", keyset_password_crypt
+            print "Sig Pass:", keyset_password_sig
             os.makedirs(KEYSET_ROOT_PATH + alias + '/' + CRYPT_KEY_DIR)
             os.makedirs(KEYSET_ROOT_PATH + alias + '/' + CRYPT_KEY_PUB_DIR)
             os.makedirs(KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_DIR)
@@ -129,70 +133,85 @@ class Crypto(object):
             kt.CmdCreate(KEYSET_ROOT_PATH + alias + '/' + CRYPT_KEY_DIR, keyczar.KeyPurpose.DECRYPT_AND_ENCRYPT,
                          "CRYPT_KEY", keyczar.KeyczarTool.RSA)
             version = kt.CmdAddKey(KEYSET_ROOT_PATH + alias + '/' + CRYPT_KEY_DIR, keyczar.KeyStatus.ACTIVE, 0,
-                               keyczar.KeyczarTool.PBE, keyset_password)
+                               keyczar.KeyczarTool.PBE, keyset_password_crypt)
             kt.CmdPromote(KEYSET_ROOT_PATH + alias + '/' + CRYPT_KEY_DIR, version)
-    
+
             # export public key
             kt.CmdPubKey(KEYSET_ROOT_PATH + alias + '/' + CRYPT_KEY_DIR, KEYSET_ROOT_PATH + alias + '/' + CRYPT_KEY_PUB_DIR, keyczar.KeyczarTool.PBE,
-                         keyset_password)
+                         keyset_password_crypt)
 
 
             # create a rsa keyset for signing and verifying
             kt.CmdCreate(KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_DIR, keyczar.KeyPurpose.SIGN_AND_VERIFY,
                          "SIG_KEY", keyczar.KeyczarTool.RSA)
             version = kt.CmdAddKey(KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_DIR, keyczar.KeyStatus.ACTIVE, 0,
-                                   keyczar.KeyczarTool.PBE, keyset_password)
+                                   keyczar.KeyczarTool.PBE, keyset_password_sig)
             kt.CmdPromote(KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_DIR, version)
 
             # export public key
             kt.CmdPubKey(KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_DIR, KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_PUB_DIR, keyczar.KeyczarTool.PBE,
-                         keyset_password)
+                         keyset_password_sig)
 
             print "Keyset generation complete."
             return True
 
     def sign_msg(self, msg, alias):
-        reader = keyczar.KeysetPBEJSONFileReader(KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_DIR,self.keyset_password)
+        print "Signing Msg."
+        reader = keyczar.KeysetPBEJSONFileReader(KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_DIR,self.keyset_password_sig)
         signer = keyczar.Signer.Read(reader) # sender's private signing key
         signer.set_encoding(signer.NO_ENCODING)
         signature = signer.Sign(msg)
         return signature
 
     def verify_msg(self, msg, signature, alias):
+        print "Verifying Sig.", alias
         verifier = keyczar.Verifier.Read(KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_PUB_DIR) # sender's public verifying key
         verifier.set_encoding(verifier.NO_ENCODING)
         verified = verifier.Verify(msg, signature)
         return verified
 
     def encrypt_msg(self, msg, alias):
+        print "Encrypting Msg for ", alias
         encrypter = keyczar.Encrypter.Read(KEYSET_ROOT_PATH + alias + '/' + CRYPT_KEY_PUB_DIR) # recipient's public encrypting key
         encrypter.set_encoding(encrypter.NO_ENCODING)
         encrypted_msg = encrypter.Encrypt(msg)
         return encrypted_msg
 
     def decrypt_msg(self, encrypted_msg, alias):
-        print "keyset psw: " + self.keyset_password
-        reader = keyczar.KeysetPBEJSONFileReader(KEYSET_ROOT_PATH + alias + '/' + CRYPT_KEY_DIR, self.keyset_password)
+        #print "Decrypting Msg from: ", alias
+        #print "keyset psw: " + self.keyset_password_sig
+        reader = keyczar.KeysetPBEJSONFileReader(KEYSET_ROOT_PATH + alias + '/' + CRYPT_KEY_DIR, self.keyset_password_crypt)
         crypter = keyczar.Crypter.Read(reader)
         crypter.set_encoding(crypter.NO_ENCODING)
         decrypted_msg = crypter.Decrypt(encrypted_msg)
         return decrypted_msg
 
-    def authenticate_user(self, keyset_password, alias):
+    def authenticate_user(self, keyset_password_crypt, keyset_password_sig,alias):
         print "Authenticate ", alias
+        print "With Passwords:"
+        print "Crypt Psw:", keyset_password_crypt
+        print "Sig Psw:", keyset_password_sig
         isReg = True
         print KEYSET_ROOT_PATH + alias + '/'
         if not os.path.isdir(KEYSET_ROOT_PATH + alias + '/'):
             #Node has not been configured (Factory State). Probably Temp. We will add a first time sequence
             print "DSC Node has not been configured. This is where we generate keysets."
             return False
-        reader = keyczar.KeysetPBEJSONFileReader(KEYSET_ROOT_PATH + alias + '/' + CRYPT_KEY_DIR, keyset_password)
-        crypter = keyczar.Crypter.Read(reader)
-        if crypter != None:
-            self.keyset_password = keyset_password
+        try:
+            reader_crypt = keyczar.KeysetPBEJSONFileReader(KEYSET_ROOT_PATH + alias + '/' + CRYPT_KEY_DIR, keyset_password_crypt)
+            crypter = keyczar.Crypter.Read(reader_crypt)
+            reader_sig = keyczar.KeysetPBEJSONFileReader(KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_DIR, keyset_password_sig)
+            signer = keyczar.Signer.Read(reader_sig)
+        except Exception as e:
+            print "Auth Exception: ", e
+            return False
+        if crypter != None and signer != None: #and crypter_sig != None:
+            self.keyset_password_crypt = keyset_password_crypt
+            self.keyset_password_sig = keyset_password_sig
             print "Auth Success!"
             return True
         else:
+            #If we see a bad auth attempt, here is a spot to do something.
             print "Auth Fail!"
             return False
 
@@ -229,7 +248,7 @@ if __name__ == '__main__':
     print "verified:", c.verify_msg(test_msg, signature, SIG_KEY_PUB_DIR)
     print datetime.datetime.now()
     print ""
-	
+
     print "encrypting msg..."
     print datetime.datetime.now()
     encrypted_msg = c.encrypt_msg(test_msg, CRYPT_KEY_PUB_DIR)
