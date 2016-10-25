@@ -50,6 +50,8 @@ class Display(Thread):
         self.viz_min = 0
         self.viz_max = self.screen_row_size
 
+        self.view_msg_friend = None
+
         self.message = message
 
         #Show a Msg for x amount of seconds
@@ -139,13 +141,13 @@ class Display(Thread):
                         self.viz_min = self.viz_max - self.screen_row_size
                     #print "Row Index: ", self.row_index, " Viz_Min:", self.viz_min, " Viz_Max:", self.viz_max
                     #for i in range(self.viz_min,self.viz_max):
-                    
+
                     for i in range(0,len(self.message.friends)):
-                        draw.text((20, 4+( (i-self.viz_min) * self.row_height) ), self.message.friends[i], font=self.font, fill=255)
+                        draw.text((5, 4+( (i-self.viz_min) * self.row_height) ), self.message.friends[i], font=self.font, fill=255)
                     draw.line((121,60,124,63), fill=255)
                     draw.line((124,63,127,60), fill=255)
 
-                    draw.text((0, 4 + (12* (self.row_index - self.viz_min))), '->', font=self.font, fill=255)
+                    draw.text((0, 4 + (12* (self.row_index - self.viz_min))), '|', font=self.font, fill=255)
 
            #------[MSG COMPOSE MENU]-------
             elif self.mode == m_COMPOSE_MENU:
@@ -165,11 +167,11 @@ class Display(Thread):
                         max = self.viz_max
 
                     for i in range(self.viz_min,max):
-                        draw.text((20, 4+( (i-self.viz_min) * self.row_height) ), scr.compose_menu[i], font=self.font, fill=255)
+                        draw.text((5, 4+( (i-self.viz_min) * self.row_height) ), scr.compose_menu[i], font=self.font, fill=255)
                     draw.line((121,60,124,63), fill=255)
                     draw.line((124,63,127,60), fill=255)
 
-                    draw.text((0, 4 + (12* (self.row_index - self.viz_min))), '->', font=self.font, fill=255)
+                    draw.text((0, 4 + (12* (self.row_index - self.viz_min))), '|', font=self.font, fill=255)
 
             #------[SYSTEM MENU]-------
             elif self.mode == m_SYSTEM_MENU:
@@ -189,11 +191,11 @@ class Display(Thread):
                         max = self.viz_max
 
                     for i in range(self.viz_min,max):
-                        draw.text((20, 4+( (i-self.viz_min) * self.row_height) ), scr.system_menu[i], font=self.font, fill=255)
+                        draw.text((5, 4+( (i-self.viz_min) * self.row_height) ), scr.system_menu[i], font=self.font, fill=255)
                     draw.line((121,60,124,63), fill=255)
                     draw.line((124,63,127,60), fill=255)
 
-                    draw.text((0, 4 + (12* (self.row_index - self.viz_min))), '->', font=self.font, fill=255)
+                    draw.text((0, 4 + (12* (self.row_index - self.viz_min))), '|', font=self.font, fill=255)
 
             #------[MSG THREAD VIEWER]-------
             elif self.mode == m_MSG_VIEWER:
@@ -207,18 +209,19 @@ class Display(Thread):
                         self.viz_max = self.row_index + 1
                         self.viz_min = self.viz_max - self.screen_row_size
                     #print "Row Index: ", self.row_index, " Viz_Min:", self.viz_min, " Viz_Max:", self.viz_max
-                    if len(self.message.get_msg_thread()) < self.viz_max:
-                        max = len(self.message.get_msg_thread())
-                    else:
-                        max = self.viz_max
-                    #print "viz min:",self.viz_min
-                    #print "viz max:",max
-                    for i in range(self.viz_min,max):
-                        draw.text((20, 4+( (i-self.viz_min) * self.row_height) ), self.message.get_msg_thread()[i], font=self.font, fill=255)
+                    if self.message.get_msg_thread(self.view_msg_friend) != None:
+                        if len(self.message.get_msg_thread(self.view_msg_friend)) < self.viz_max:
+                            max = len(self.message.get_msg_thread(self.view_msg_friend))
+                        else:
+                            max = self.viz_max
+                        #print "viz min:",self.viz_min
+                        #print "viz max:",max
+                        for i in range(self.viz_min,max):
+                            draw.text((5, 4+( (i-self.viz_min) * self.row_height) ), self.message.get_msg_thread(self.view_msg_friend)[i], font=self.font, fill=255)
                     draw.line((121,60,124,63), fill=255)
                     draw.line((124,63,127,60), fill=255)
 
-                    draw.text((0, 4 + (12* (self.row_index - self.viz_min))), '->', font=self.font, fill=255)
+                    draw.text((0, 4 + (12* (self.row_index - self.viz_min))), '|', font=self.font, fill=255)
 
           #------[COMPOSE MSG]----------------------------------------------------------------
             elif self.mode == m_COMPOSE:
@@ -270,11 +273,11 @@ class Display(Thread):
                         self.viz_min = self.viz_max - self.screen_row_size
                     #print "Row Index: ", self.row_index, " Viz_Min:", self.viz_min, " Viz_Max:", self.viz_max
                     for i in range(self.viz_min,self.viz_max):
-                        draw.text((20, 4+( (i-self.viz_min) * self.row_height) ), scr.main_menu[i], font=self.font, fill=255)
+                        draw.text((5, 4+( (i-self.viz_min) * self.row_height) ), scr.main_menu[i], font=self.font, fill=255)
                     draw.line((121,60,124,63), fill=255)
                     draw.line((124,63,127,60), fill=255)
 
-                    draw.text((0, 4 + (12* (self.row_index - self.viz_min))), '->', font=self.font, fill=255)
+                    draw.text((0, 4 + (12* (self.row_index - self.viz_min))), '|', font=self.font, fill=255)
             self.event.wait(0.02)
 
         with canvas(self.device) as draw:
@@ -284,7 +287,7 @@ class Display(Thread):
         print "Stopping OLED Display Thread."
         self.event.set()
 
-    def reset(self):    
+    def reset(self):
         GPIO.output(iodef.PIN_OLED_RESET, False)
         sleep(1)
         GPIO.output(iodef.PIN_OLED_RESET, True)

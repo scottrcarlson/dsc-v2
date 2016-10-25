@@ -49,7 +49,7 @@ class Radio(Thread):
 
         self.address = 0 #get rid of this
         print "Initialized Radio Thread."
-        
+
 
     def run(self):
         self.event.wait(1)
@@ -82,11 +82,13 @@ class Radio(Thread):
 
                 if (epoch > slot_start and epoch < (slot_end - self.config.tx_deadband)):
                     #print "Radio Enable TX"
+                    self.message.is_radio_tx = True
                     if not transmit_ok:
                         print "== [TX] Sent: [",self.total_sent,"]  Recvd:[",self.total_recv,"] Radio Exceptions:[",self.total_exceptions,"] =="
                     transmit_ok = True
                 else:
                     #print "Radio Disable TX"
+                    self.message.is_radio_tx = False
                     if transmit_ok:
                         print "== [RX] Sent: [",self.total_sent,"]  Recvd:[",self.total_recv,"] Radio Exceptions:[",self.total_exceptions,"] =="
                     transmit_ok = False

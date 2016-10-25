@@ -93,6 +93,7 @@ class UI(Thread):
             else:
                 self.is_idle = True
 
+            self.message.decrypt_msg_thread(self.display.view_msg_friend)
             self.event.wait(5)
 
     def stop(self):
@@ -275,10 +276,10 @@ class UI(Thread):
                     password = self.crypto.generate_random_password(38)
                     sig_pass =str(password)[:len(password)/2]
                     crypt_pass = str(password)[len(password)/2:]
-                    print "Password len:",len(password)
-                    print "Yubikey psw: ", password
-                    print "Crypt psw: ", crypt_pass
-                    print "Sig psw: ", sig_pass
+                    #print "Password len:",len(password)
+                    #print "Yubikey psw: ", password
+                    #print "Crypt psw: ", crypt_pass
+                    #print "Sig psw: ", sig_pass
                     if self.crypto.gen_keysets(crypt_pass,sig_pass,self.config.alias):
                         self.yubikey.set_slot1(password)
                         self.display.dialog_msg = "Keyset Generated!"
@@ -314,10 +315,13 @@ class UI(Thread):
                     self.main_menu()
         elif self.display.mode == m_RECIPIENT_MENU:
             self.message.compose_to = self.message.friends[self.display.row_index]
-            print "Composing Msg for: ", self.message.compose_to
+            self.display.view_msg_friend = self.message.friends[self.display.row_index]
+            print "Decrypting Msg Thread with ", self.display.view_msg_friend
+            self.message.decrypt_msg_thread(self.display.view_msg_friend)
+            print "Recipient: ", self.message.compose_to
             self.display.row_index = 0
             self.display.col_index = 0
-            self.display.mode = m_COMPOSE_MENU
+            self.display.mode = self.display.dialog_next_mode
         elif self.display.mode == m_COMPOSE_MENU:
             self.message.compose_msg = scr.compose_menu[self.display.row_index]
             print "Pretext Msg: ", self.message.compose_msg
@@ -329,11 +333,14 @@ class UI(Thread):
             if self.display.row_index == 0:
                 self.display.row_index = 0
                 self.display.col_index = 0
+                self.display.dialog_next_mode = m_COMPOSE_MENU
                 self.display.mode = m_RECIPIENT_MENU
             elif self.display.row_index == 1:
                 self.display.row_index = 0
                 self.display.col_index = 0
-                self.display.mode = m_MSG_VIEWER
+                self.display.dialog_next_mode = m_MSG_VIEWER
+                self.display.mode = m_RECIPIENT_MENU
+
             elif self.display.row_index == 3:
                 self.display.row_index = 0
                 self.display.col_index = 0
@@ -398,10 +405,10 @@ class UI(Thread):
                     password = self.crypto.generate_random_password(38)
                     sig_pass =str(password)[:len(password)/2]
                     crypt_pass = str(password)[len(password)/2:]
-                    print "Password len:",len(password)
-                    print "Yubikey psw: ", password
-                    print "Crypt psw: ", crypt_pass
-                    print "Sig psw: ", sig_pass
+                    #print "Password len:",len(password)
+                    #print "Yubikey psw: ", password
+                    #print "Crypt psw: ", crypt_pass
+                    #print "Sig psw: ", sig_pass
                     if self.crypto.gen_keysets(crypt_pass,sig_pass,self.config.alias):
                         self.yubikey.set_slot1(password)
                         self.display.dialog_msg = "Keyset Generated!"
@@ -469,10 +476,10 @@ class UI(Thread):
             self.display.dialog_cmd = ""
             sig_pass =str(password)[:len(password)/2]
             crypt_pass =str(password)[len(password)/2:]
-            print "Password len:",len(password)
-            print "Yubikey psw: ", password
-            print "Crypt psw: ", crypt_pass
-            print "Sig psw: ", sig_pass
+            #print "Password len:",len(password)
+            #print "Yubikey psw: ", password
+            #print "Crypt psw: ", crypt_pass
+            #print "Sig psw: ", sig_pass
             if self.crypto.authenticate_user(crypt_pass, sig_pass, self.config.alias):
                 self.display.dialog_msg = "Keyset Psw Auth Good!"
                 self.display.dialog_msg2 = ""
@@ -487,10 +494,10 @@ class UI(Thread):
             print "Checking Yubikey Authentication Password. "
             sig_pass =str(password)[:len(password)/2]
             crypt_pass =str(password)[len(password)/2:]
-            print "Password len:",len(password)
-            print "Yubikey psw: ", password
-            print "Crypt psw: ", crypt_pass
-            print "Sig psw: ", sig_pass
+            #print "Password len:",len(password)
+            #print "Yubikey psw: ", password
+            #print "Crypt psw: ", crypt_pass
+            #print "Sig psw: ", sig_pass
             if self.crypto.authenticate_user(crypt_pass, sig_pass, self.config.alias):
                 self.main_menu()
                 self.message.auth = True

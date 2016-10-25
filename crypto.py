@@ -156,25 +156,29 @@ class Crypto(object):
             return True
 
     def sign_msg(self, msg, alias):
-        print "Signing Msg."
         reader = keyczar.KeysetPBEJSONFileReader(KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_DIR,self.keyset_password_sig)
         signer = keyczar.Signer.Read(reader) # sender's private signing key
         signer.set_encoding(signer.NO_ENCODING)
         signature = signer.Sign(msg)
+        print "Signed Msg."
         return signature
 
     def verify_msg(self, msg, signature, alias):
-        print "Verifying Sig.", alias
-        verifier = keyczar.Verifier.Read(KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_PUB_DIR) # sender's public verifying key
-        verifier.set_encoding(verifier.NO_ENCODING)
-        verified = verifier.Verify(msg, signature)
-        return verified
+        try:
+            print "Verifying Sig...", alias
+            verifier = keyczar.Verifier.Read(KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_PUB_DIR) # sender's public verifying key
+            verifier.set_encoding(verifier.NO_ENCODING)
+            verified = verifier.Verify(msg, signature)
+            return verified
+        except:
+            print "Sig failed to verify for ", alias
+            return null
 
     def encrypt_msg(self, msg, alias):
-        print "Encrypting Msg for ", alias
         encrypter = keyczar.Encrypter.Read(KEYSET_ROOT_PATH + alias + '/' + CRYPT_KEY_PUB_DIR) # recipient's public encrypting key
         encrypter.set_encoding(encrypter.NO_ENCODING)
         encrypted_msg = encrypter.Encrypt(msg)
+        print "Encrypted Msg for ", alias
         return encrypted_msg
 
     def decrypt_msg(self, encrypted_msg, alias):
@@ -187,10 +191,10 @@ class Crypto(object):
         return decrypted_msg
 
     def authenticate_user(self, keyset_password_crypt, keyset_password_sig,alias):
-        print "Authenticate ", alias
-        print "With Passwords:"
-        print "Crypt Psw:", keyset_password_crypt
-        print "Sig Psw:", keyset_password_sig
+        print "Authenticating ", alias
+        #print "With Passwords:"
+        #print "Crypt Psw:", keyset_password_crypt
+        #print "Sig Psw:", keyset_password_sig
         isReg = True
         print KEYSET_ROOT_PATH + alias + '/'
         if not os.path.isdir(KEYSET_ROOT_PATH + alias + '/'):
@@ -203,16 +207,16 @@ class Crypto(object):
             reader_sig = keyczar.KeysetPBEJSONFileReader(KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_DIR, keyset_password_sig)
             signer = keyczar.Signer.Read(reader_sig)
         except Exception as e:
-            print "Auth Exception: ", e
+            print "Authentication Exception: ", e
             return False
         if crypter != None and signer != None: #and crypter_sig != None:
             self.keyset_password_crypt = keyset_password_crypt
             self.keyset_password_sig = keyset_password_sig
-            print "Auth Success!"
+            print "Authentication Success!"
             return True
         else:
             #If we see a bad auth attempt, here is a spot to do something.
-            print "Auth Fail!"
+            print "Authentication Fail!"
             return False
 
 if __name__ == '__main__':

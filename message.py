@@ -14,8 +14,8 @@ class Message(Thread):
         self.auth = False
         self.sig_auth = False
 
-        self.cleartext_msg_thread = []
-        self.msg_thread = []
+        self.cleartext_msg_thread = {}
+        self.msg_thread = {}
         self.repeat_msg_list = []
 
         self.beacon_segment = 0
@@ -37,9 +37,15 @@ class Message(Thread):
         self.compose_msg = ""
         self.compose_to = ""
 
+        self.is_radio_tx = False
+        self.quiet_mode = False
+
         print "Initialized Message Thread."
 
     def run(self):
+        quiet_frames = 2 #Number of frames to prevent inbound/outbound traffic accept beacons
+        quiet_cnt = 0
+
         beacon_interval = self.config.tdma_total_slots * (self.config.tx_time + self.config.tx_deadband)
         print "Beacon Interval: ", beacon_interval, " sec"
         beacon_timeout = time.time()
@@ -59,11 +65,21 @@ class Message(Thread):
 
             self.check_for_complete_msgs()
 
-            if self.auth:
-                for friend in self.friends:
-                    self.decrypt_msg_thread(friend)
+            #if self.auth:
+            #    for friend in self.friends:
+            #self.decrypt_msg_thread(friend)
 
             if time.time() - beacon_timeout > beacon_interval:
+                if self.quiet_mode:
+                    if quiet_cnt < quiet_frames:
+                        quiet_cnt += 1
+
+                    else:
+                        self.quiet_mode = False
+                        print "Quiet Mode Disabled."
+                else:
+                    quiet_cnt = 0
+
                 beacon_timeout = time.time()
                 self.generate_beacons()
                 if len(self.msg_seg_list) > 10:
@@ -78,31 +94,43 @@ class Message(Thread):
         print "Stopping Message Thread."
         self.event.set()
 
-    def get_msg_thread(self):
+    def get_msg_thread(self,friend):
         #look up by alias to return the associate msg thread
-        return self.cleartext_msg_thread
+        if friend in self.cleartext_msg_thread:
+            return self.cleartext_msg_thread[friend]
+        else:
+            return None
 
-    def decrypt_msg_thread(self, alias):
-        #pass alias, and decrypt thread make available for viewing
-        if len(self.msg_thread) != (len(self.cleartext_msg_thread) / 3):
+    def decrypt_msg_thread(self, friend):
+        #pass friends alias, and decrypt thread make available for viewing
+        if friend in self.msg_thread:
+
+            if friend not in self.cleartext_msg_thread:
+                self.cleartext_msg_thread[friend] = []
+                print "initialized first time"
+            if len(self.msg_thread[friend]) != (len(self.cleartext_msg_thread[friend]) / 3):
             #print "Decrypting thread for viewing pleasure..."
-            tmp_cleartext = []
-            print "Rebuilding Msg Thread: Started."
-            for cypher_msg in self.msg_thread:
-                try:
-                    clear_msg = self.crypto.decrypt_msg(cypher_msg, self.config.alias)
-                    clear_msg_segs = clear_msg.split('|')
-                    msg_timestamp = time.mktime(time.strptime(clear_msg_segs[0], "%Y-%m-%d %H:%M:%S"))
-                    tmp_cleartext.append(alias + " " + str(round(time.time() - msg_timestamp,0)) + "s")
-                    tmp_cleartext.append(clear_msg_segs[0]) # Timestamp
-                    tmp_cleartext.append(clear_msg_segs[1]) # Actual Msg
-                    del(clear_msg_segs) # ???
-                    del(clear_msg) # del from mem, is this good enough. research
-                except Exception as e:
-                    print "Failed to decrypt: ", e
-            print "Rebuilding Msg Thread: Complete."
-            self.cleartext_msg_thread = tmp_cleartext
-            #del(tmp_cleartext)
+                tmp_cleartext = []
+                for cypher_msg in self.msg_thread[friend]:
+                    try:
+                        clear_msg = self.crypto.decrypt_msg(cypher_msg, self.config.alias)
+                        clear_msg_segs = clear_msg.split('|')
+                        msg_timestamp = time.mktime(time.strptime(clear_msg_segs[0], "%Y-%m-%d %H:%M:%S"))
+                        tmp_cleartext.append(friend + " " + str(round(time.time() - msg_timestamp,0)) + "s")
+                        #tmp_cleartext.append(clear_msg_segs[0]) # Timestamp
+                        clear_text = clear_msg_segs[1]
+                        while len(clear_text) > 20:
+                            tmp_cleartext.append(clear_text[:20]) # Actual Msg
+                            clear_text = clear_text[20:]
+                        tmp_cleartext.append(clear_text)
+                        del(clear_msg_segs) # ???
+                        del(clear_msg) # del from mem, is this good enough. research
+                    except Exception as e:
+                        print "Failed to decrypt: ", e
+                print "Rebuilding Msg Thread: Complete."
+                self.cleartext_msg_thread[friend] = tmp_cleartext
+        else:
+            print "Msg thread is empty:", friend
 
     def build_friend_list(self):
         print "Building Friend list"
@@ -120,6 +148,7 @@ class Message(Thread):
         seg1f = ''
         seg2f = ''
 
+
         if len(self.beacons) > 0:
             if self.beacon_segment == 0:
                 outbound_data = self.beacons[0][:255]
@@ -135,7 +164,7 @@ class Message(Thread):
                 outbound_data += seg1f + seg2f
                 self.beacon_segment = 0
                 del self.beacons[0]
-        else:
+        elif not self.quiet_mode:
             msg_list_len = len(self.repeat_msg_list)
 
             if msg_list_len > 0:
@@ -143,7 +172,7 @@ class Message(Thread):
                     self.repeat_msg_index = 0
                     self.repeat_msg_segment = 0
 
-                print "Sending Msg Index: ", self.repeat_msg_index, " Seg: ", self.repeat_msg_segment, " List Size: ", msg_list_len, " Msg Thread Size: ", len(self.msg_thread)
+                print "Sending Msg Index: ", self.repeat_msg_index, " Seg: ", self.repeat_msg_segment, " Repeat Msg Size: ", msg_list_len
                 if self.repeat_msg_segment == 0:
                     outbound_data = self.repeat_msg_list[self.repeat_msg_index][:255]
                     self.repeat_msg_segment += 1
@@ -214,11 +243,12 @@ class Message(Thread):
                 return True
         return False
 
-    def check_for_dup_msg_thread(self, msg):
-        for m in self.msg_thread:
-            self.event.wait(0.1)
-            if msg == m:
-                return True
+    def check_for_dup_msg_thread(self, msg, friend):
+        if friend in self.msg_thread:
+            for m in self.msg_thread[friend]:
+                self.event.wait(0.1)
+                if msg == m:
+                    return True
         return False
 
     def check_for_seg_dup(self,msg):
@@ -279,19 +309,30 @@ class Message(Thread):
                         #therefore, we will never need to check if this
                         #condition has is beacon!
                         msg_complete = msg_complete = seg1 + seg2 + mf[:12]
-                        if self.add_msg_to_repeat_list(msg_complete):
-                            print "Unique Msg Added to Repeat List [ Healing ]."
+                        if not self.quiet_mode:
+                            if self.add_msg_to_repeat_list(msg_complete):
+                                print "Unique msg added to repeat list [ HEALING ]."
                     else:
                         for friend in self.friends:
                             self.event.wait(0.25)
                             #print "Checking is msg from: ", alias
                             if self.crypto.verify_msg(msg, sig, friend):
                                 if self.process_msg(msg,friend):
-                                    msg_complete = seg1 + seg2 + mf[:12]
-                                    if self.add_msg_to_repeat_list(msg_complete):
-                                        print "Unique Msg Added to Repeat List."
-                                        if not self.check_for_dup_msg_thread(msg):
-                                            self.msg_thread.append(msg)
+                                    if not self.quiet_mode:
+                                        msg_complete = seg1 + seg2 + mf[:12]
+                                        if self.add_msg_to_repeat_list(msg_complete):
+                                            print "Unique Msg added to repeat list."
+                                            if not self.check_for_dup_msg_thread(msg, friend):
+                                                try:
+                                                    if not self.crypto.decrypt_msg(msg, self.config.alias) == '':
+                                                        #Its fself.check_for_dup_msg_threador you, Added to Msg Thread
+                                                        if friend in self.msg_thread:
+                                                            self.msg_thread[friend].append(msg)
+                                                        else:
+                                                            self.msg_thread[friend] = [msg]
+                                                        print "Unique Msg is for you."
+                                                except:
+                                                    print "Msg failed to decypt. Not for you."
                                 break
                     try:
                         self.msg_seg_list.remove(mf)
@@ -313,24 +354,27 @@ class Message(Thread):
             for key, value in self.beacon_quiet_hash.iteritems():
                 if value == hashlib.md5('').hexdigest():
                     if self.beacon_quiet_confidence > 1:
-                        print "== Peer Quiet Network =="
+                        print "Quiet Mode Enabled By Peer."
                         self.repeat_msg_list[:] = []
+                        self.msg_seg_list[:] = []
                         self.beacon_quiet_confidence = 0
+                        self.quiet_mode = True
                 elif value == hash_repeat_list:
                     consensus_cnt += 1
 
             if (consensus_cnt == len(self.beacon_quiet_hash)):
                 self.beacon_quiet_confidence += 1
-                print "Current Confidence:", self.beacon_quiet_confidence
+                print "All Nodes Equal Increasing Confidence:", self.beacon_quiet_confidence
                 if self.beacon_quiet_confidence >= 5: #arbitrary, needs further consideration
+                    print "Quiet Mode Initiated."
                     self.beacon_quiet_confidence = 0
-                    print "== Initiate Quiet Network =="
                     self.repeat_msg_list[:] = []
+                    self.msg_seg_list[:] = []
+                    self.quiet_mode = True
             else:
                 self.beacon_quiet_confidence = 0
-            print 'Beacon Hashes: ', self.beacon_quiet_hash
-            print "Repeat Msg Queue Size: ", len(self.repeat_msg_list)
-            print "Repeat Msg Segment Queue Size: ", len(self.msg_seg_list)
+            #print 'Beacon Hashes: ', self.beacon_quiet_hash
+            print "Repeat Msg Queue/Segment Size: ", len(self.repeat_msg_list), ' / ', len(self.msg_seg_list)
             return False
         else:
             return True
