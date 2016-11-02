@@ -46,7 +46,7 @@ class Config(object):
     def load_config(self):
         self.cfg.read(CONFIG_PATH + '/' + CONFIG_FILE)
         self.alias = self.cfg.get("Network","Alias")
-        print "Config: ", self.alias
+        print "Your Alias:", self.alias
         self.tdma_slot = self.cfg.getint("Network","TDMA_Slot")
         self.tdma_total_slots = self.cfg.getint("Network","TDMA_Total_Slots")
         self.tx_time = self.cfg.getfloat("Network","TX_Time")

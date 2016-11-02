@@ -11,6 +11,7 @@ import os
 from threading import *
 import screen as scr
 import time
+import logging
 
 #DISPLAY MODES
 m_IDLE = 0
@@ -33,12 +34,14 @@ class Display(Thread):
     def __init__(self, message, version, config):
         Thread.__init__(self)
         self.event = Event()
+        self.log = logging.getLogger(self.__class__.__name__)
         self.reset()
         self.config = config
         self.version = version
     	# TODO: gracefully handle exception when OLED absent
         self.device = sh1106(port=1, address=0x3C)
         self.font = ImageFont.load_default()
+
         self.mode = m_IDLE
 
         self.row_index = 0
@@ -62,7 +65,7 @@ class Display(Thread):
         self.dialog_cmd = 0
         self.dialog_task_done = False
         self.dialog_next_mode = m_MAIN_MENU
-        print "OLED Display Thread Initialized."
+        self.log.info("Initialized Display Thread.")
 
     def run(self):
         self.event.wait(1)
@@ -209,19 +212,23 @@ class Display(Thread):
                         self.viz_max = self.row_index + 1
                         self.viz_min = self.viz_max - self.screen_row_size
                     #print "Row Index: ", self.row_index, " Viz_Min:", self.viz_min, " Viz_Max:", self.viz_max
-                    if self.message.get_msg_thread(self.view_msg_friend) != None:
-                        if len(self.message.get_msg_thread(self.view_msg_friend)) < self.viz_max:
-                            max = len(self.message.get_msg_thread(self.view_msg_friend))
-                        else:
-                            max = self.viz_max
-                        #print "viz min:",self.viz_min
-                        #print "viz max:",max
-                        for i in range(self.viz_min,max):
-                            draw.text((5, 4+( (i-self.viz_min) * self.row_height) ), self.message.get_msg_thread(self.view_msg_friend)[i], font=self.font, fill=255)
+                    if self.view_msg_friend in self.message.cleartext_msg_thread:
+                        if self.message.cleartext_msg_thread[self.view_msg_friend] != None:
+                            if len(self.message.cleartext_msg_thread[self.view_msg_friend]) < self.viz_max:
+                                max = len(self.message.cleartext_msg_thread[self.view_msg_friend])
+                            else:
+                                max = self.viz_max
+                            #print "viz min:",self.viz_min
+                            #print "viz max:",max
+                            for i in range(self.viz_min,max):
+                                draw.text((0, 4+( (i-self.viz_min) * self.row_height) ), self.message.cleartext_msg_thread[self.view_msg_friend][i], font=self.font, fill=255)
+                    else:
+                        draw.text((0, 0),"No Messages", font=self.font, fill=255)
+
                     draw.line((121,60,124,63), fill=255)
                     draw.line((124,63,127,60), fill=255)
 
-                    draw.text((0, 4 + (12* (self.row_index - self.viz_min))), '|', font=self.font, fill=255)
+                    #draw.text((0, 4 + (12* (self.row_index - self.viz_min))), '|', font=self.font, fill=255)
 
           #------[COMPOSE MSG]----------------------------------------------------------------
             elif self.mode == m_COMPOSE:
@@ -278,13 +285,13 @@ class Display(Thread):
                     draw.line((124,63,127,60), fill=255)
 
                     draw.text((0, 4 + (12* (self.row_index - self.viz_min))), '|', font=self.font, fill=255)
-            self.event.wait(0.02)
+            self.event.wait(0.04)
 
         with canvas(self.device) as draw:
             pass
 
     def stop(self):
-        print "Stopping OLED Display Thread."
+        self.log.info("Stopping OLED Display Thread.")
         self.event.set()
 
     def reset(self):

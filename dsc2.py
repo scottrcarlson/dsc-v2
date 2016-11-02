@@ -15,8 +15,9 @@ from message import Message
 from config import Config
 from crypto import Crypto
 import subprocess
+import logging
 
-version = ""
+version = "v0.2[alpha]"
 isRunning = True            #Main Thread Control Bit
 
 radio = None
@@ -43,6 +44,14 @@ def get_hg_rev():
     return pipe.stdout.read()
 
 if __name__ == "__main__":
+
+    logging.basicConfig(level=logging.DEBUG,format='%(name)-12s| %(levelname)-8s| %(message)s')
+                    #format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+                    #datefmt='%m-%d %H:%M')
+                    #filename='/temp/myapp.log',
+                    #filemode='w')
+
+    logging.getLogger("ll_ifc").setLevel(logging.WARNING)
     print '+----------------------------+'
     print "+ Dirt Simple Comms 2 " + version + ' +'
     print '+----------------------------+'

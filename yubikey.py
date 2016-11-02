@@ -20,6 +20,7 @@ import usb.core
 import string
 from evdev import InputDevice, categorize, ecodes
 import subprocess
+import logging
 
 MIT_YUBIKEY_VENDOR_ID = 0x1050
 MIT_YUBIKEY_PRODUCT_ID = 0x0010
@@ -48,6 +49,7 @@ class Yubikey(Thread):
     def __init__(self,yubikey_status,yubikey_auth):
         Thread.__init__(self)
         self.event = Event()
+        self.log = logging.getLogger(self.__class__.__name__)
         self.yubikey_status = yubikey_status
         self.yubikey_auth = yubikey_auth
         self.key_present = False
@@ -56,7 +58,7 @@ class Yubikey(Thread):
         #self.dev.grab()
         self.caps = False
 
-        print "Initialized Yubikey Thread Thread."
+        self.log.info("Initialized Yubikey Thread Thread.")
 
     def run(self):
         self.event.wait(1)
@@ -108,14 +110,14 @@ class Yubikey(Thread):
                                 else:
                                     key_lookup = u'{}'.format(SCANCODES.get(data.scancode)) or u'UNKNOWN:[{}]'.format(data.scancode)  # $
                                 if (data.scancode != 42) and (data.scancode != 28):
-                                   
+
                                     self.yubikey_input += key_lookup
                                 # Print it all out!
                                 if(data.scancode == 28):
-                                    print "Received Yubikey Input"
+                                    self.log.debug("Received Yubikey Input")
                                     #print self.yubikey_input
                                     self.yubikey_auth(self.yubikey_input)
-                                    self.yubikey_input = ''              
+                                    self.yubikey_input = ''
                 except:
                     pass
                 self.event.wait(0.01)
@@ -123,16 +125,16 @@ class Yubikey(Thread):
                 self.event.wait(1)
 
     def stop(self):
-        print "Stopping Yubikey Thread."
+        self.log.info( "Stopping Yubikey Thread.")
         self.event.set()
 
     def set_slot1(self,private_key_password):
         proc = subprocess.Popen(["perl", "pw-to-yubi.pl", private_key_password], stdout=subprocess.PIPE)
         ykpersonalize_cmd_line = proc.communicate()[0]
-        print "running... ", ykpersonalize_cmd_line.split(' ')
+        self.log.debug( "running... " + ykpersonalize_cmd_line.split(' '))
         proc = subprocess.Popen(ykpersonalize_cmd_line.split(' '), stdout=subprocess.PIPE)
         ykpersonalize_output = proc.communicate()[0]
-        print "output:", ykpersonalize_output
+        self.log.debug( "output:" + ykpersonalize_output)
         #Grab control over yubikey input again
         self.dev = InputDevice('/dev/input/event0')
         self.dev.grab()
@@ -140,11 +142,10 @@ class Yubikey(Thread):
     def set_slot2(self,private_key_password):
         proc = subprocess.Popen(["perl", "pw-to-yubi.pl", private_key_password], stdout=subprocess.PIPE)
         ykpersonalize_cmd_line = proc.communicate()[0]
-        print "running... ", ykpersonalize_cmd_line.split(' ')
+        self.log.debug( "running... " + ykpersonalize_cmd_line.split(' '))
         proc = subprocess.Popen(ykpersonalize_cmd_line.split(' '), stdout=subprocess.PIPE)
         ykpersonalize_output = proc.communicate()[0]
-        print "output:", ykpersonalize_output
+        self.log.debug( "output:" + ykpersonalize_output)
         #Grab control over yubikey input again
         self.dev = InputDevice('/dev/input/event0')
         self.dev.grab()
-

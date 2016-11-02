@@ -14,6 +14,7 @@ from oled.render import canvas
 from PIL import ImageDraw, Image, ImageFont
 import os
 import screen as scr
+import logging
 
 #DISPLAY MODES
 m_IDLE = 0
@@ -64,7 +65,7 @@ class UI(Thread):
     def __init__(self, display, message, crypto, config):
         Thread.__init__(self)
         self.event = Event()
-
+        self.log = logging.getLogger(self.__class__.__name__)
         GPIO.add_event_detect(iodef.PIN_KEY_UP, GPIO.FALLING, callback=self.key_up, bouncetime=40)
         GPIO.add_event_detect(iodef.PIN_KEY_DOWN, GPIO.FALLING, callback=self.key_down, bouncetime=40)
         GPIO.add_event_detect(iodef.PIN_KEY_LEFT, GPIO.FALLING, callback=self.key_left, bouncetime=40)
@@ -82,7 +83,7 @@ class UI(Thread):
         self.is_idle = False
 
         self.lock()
-        print "Initialized UI Thread."
+        self.log.info("Initialized UI Thread.")
 
     def run(self):
         self.event.wait(1)
@@ -97,7 +98,7 @@ class UI(Thread):
             self.event.wait(5)
 
     def stop(self):
-        print "Stopping UI Thread."
+        self.log.info("Stopping UI Thread.")
         self.yubikey.stop()
         #self.display.stop()
         self.event.wait(2)
@@ -155,7 +156,7 @@ class UI(Thread):
             if self.display.row_index < 0:
                 self.display.row_index = 0
         elif self.display.mode == m_MSG_VIEWER:
-            self.display.row_index -= 1
+            self.display.row_index -= 5
             if self.display.row_index < 0:
                 self.display.row_index = 0
         elif self.display.mode == m_SYSTEM_MENU:
@@ -189,9 +190,9 @@ class UI(Thread):
             if self.display.row_index >= len(scr.compose_menu):
                 self.display.row_index = len(scr.compose_menu) -1
         elif self.display.mode == m_MSG_VIEWER:
-            self.display.row_index += 1
-            if self.display.row_index >= len(scr.test_view_msg):
-                self.display.row_index = len(scr.test_view_msg) -1
+            self.display.row_index += 5
+            if self.display.row_index >= len(self.message.cleartext_msg_thread[self.display.view_msg_friend]):
+                self.display.row_index = len(self.message.cleartext_msg_thread[self.display.view_msg_friend]) -1
         elif self.display.mode == m_SYSTEM_MENU:
             self.display.row_index += 1
             if self.display.row_index >= len(scr.system_menu):
@@ -221,7 +222,6 @@ class UI(Thread):
             self.display.col_index -= 1
             if self.display.col_index < 0:
                 self.display.col_index = 0
-
 
     def key_right(self, channel):
         self.is_idle = False
@@ -313,23 +313,25 @@ class UI(Thread):
                 elif self.display.col_index == 3:
                     self.message.compose_msg = ""
                     self.main_menu()
+        elif self.display.mode == m_MSG_VIEWER:
+            self.log.debug("User Updating Msg Thread.")
+            self.message.decrypt_msg_thread(self.display.view_msg_friend)
         elif self.display.mode == m_RECIPIENT_MENU:
             self.message.compose_to = self.message.friends[self.display.row_index]
             self.display.view_msg_friend = self.message.friends[self.display.row_index]
-            print "Decrypting Msg Thread with ", self.display.view_msg_friend
+            self.log.info( "Decrypting Msg Thread with " + self.display.view_msg_friend)
             self.message.decrypt_msg_thread(self.display.view_msg_friend)
-            print "Recipient: ", self.message.compose_to
+            self.log.info( "Recipient: "+ self.message.compose_to)
             self.display.row_index = 0
             self.display.col_index = 0
             self.display.mode = self.display.dialog_next_mode
         elif self.display.mode == m_COMPOSE_MENU:
             self.message.compose_msg = scr.compose_menu[self.display.row_index]
-            print "Pretext Msg: ", self.message.compose_msg
             self.display.row_index = 0
             self.display.col_index = 0
             self.display.mode = m_COMPOSE
         elif self.display.mode == m_MAIN_MENU:
-            print "MainMenu Selected: ", scr.main_menu[self.display.row_index]
+            self.log.debug( "MainMenu Selected: " +scr.main_menu[self.display.row_index])
             if self.display.row_index == 0:
                 self.display.row_index = 0
                 self.display.col_index = 0
@@ -340,7 +342,10 @@ class UI(Thread):
                 self.display.col_index = 0
                 self.display.dialog_next_mode = m_MSG_VIEWER
                 self.display.mode = m_RECIPIENT_MENU
-
+            elif self.display.row_index == 2:
+                self.log.debug( "Generating TRAFFIC")
+                for friend in self.message.friends:
+                    self.message.process_composed_msg('Hello DSCv2.', friend)
             elif self.display.row_index == 3:
                 self.display.row_index = 0
                 self.display.col_index = 0
@@ -352,7 +357,7 @@ class UI(Thread):
                 self.display.col_index = 0
                 self.display.mode = m_DIALOG_YESNO
         elif self.display.mode == m_SYSTEM_MENU:
-            print "SystemMenu Selected: ", scr.system_menu[self.display.row_index]
+            self.log.debug( "SystemMenu Selected: " + scr.system_menu[self.display.row_index])
             if self.display.row_index == 0:     #Update Software
                 self.display.row_index = 0
                 self.display.col_index = 0
@@ -459,7 +464,7 @@ class UI(Thread):
 
     def yubikey_status(self,is_present):
         if is_present:
-            print "Yubikey Inserted"
+            self.log.debug("Yubikey Inserted")
             self.auth()
         else:
             #Perform System Wipe (Lock keys, wipe any user data from memory)
@@ -467,7 +472,7 @@ class UI(Thread):
             self.lock()
             self.crypto.keyset_password_crypt = ''
             self.message.auth = False
-            print "Yubikey Removed"
+            self.log.debug("Yubikey Removed")
 
     def yubikey_auth(self, password):
         #Check password (i.e. attempt to unlock key chain)
@@ -491,7 +496,7 @@ class UI(Thread):
                 #self.display.dialog_msg3 = "==[Press any key]=="
             self.display.mode = m_DIALOG
         elif self.display.mode == m_AUTH:
-            print "Checking Yubikey Authentication Password. "
+            self.log.info("Checking Yubikey Authentication Password. ")
             sig_pass =str(password)[:len(password)/2]
             crypt_pass =str(password)[len(password)/2:]
             #print "Password len:",len(password)
@@ -502,10 +507,9 @@ class UI(Thread):
                 self.main_menu()
                 self.message.auth = True
                 self.message.sig_auth = True
-                self.message.build_friend_list()
             else:
                 print self.config.alias
                 if self.config.alias == "unreg":
-                    print "Starting Registration Process."
+                    self.log.info( "Starting Registration Process.")
                     self.config.alias = ""
                     self.display.mode = m_REG

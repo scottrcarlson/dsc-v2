@@ -4,12 +4,14 @@
 #----------------------------
 import os, binascii, sys, keyczar, datetime
 import shutil
+import time
 from config import Config
 from sh import mount
 from sh import umount
 from sh import Command
 from sh import mkdir
 from sh import cp
+import logging
 
 ROOT_PATH = '/dscdata/'
 KEYSET_ROOT_PATH = ROOT_PATH + 'keys/'
@@ -31,7 +33,7 @@ class Crypto(object):
         self.keyset_password_sig = ""
         self.keyset_password_crypt = ""
         self.config = config
-
+        self.log = logging.getLogger(self.__class__.__name__)
     # TODO: quantify entropy of these passwords
     # TODO: Notes on improving entropy on rpi linux using broadcom feature?
     def generate_random_password(self, length):
@@ -47,65 +49,65 @@ class Crypto(object):
         pass
 
     def get_sig_pub_key_path(self, alias):
-        print "Path for Alias: ", alias, " = "
+        self.log.info("Path for Alias: ", alias, " = ")
 
     def get_friend_key_paths(self,alias):
         friends = []
         for item in os.listdir(KEYSET_ROOT_PATH):
             if item != alias:
-                print "found peer alias:", item
+                #print "found peer alias:", item
                 friends.append(item)
                 #yield PEER_PUBKEYS_DIR + "/" + item + "/sig_key_pub"
         return friends
 
     def export_keys(self, alias):
-        print "device exist?: ", os.path.isdir(USB_DRV_DEVICE_PATH)
+        self.log.debug("device exist?: " + os.path.isdir(USB_DRV_DEVICE_PATH))
         try:
             self.mount_usb_drv()
         except:
-            print "Export Key: Failed to mount. Already mounted, or drive is not plugged in."
+            self.log.warn("Export Key: Failed to mount. Already mounted, or drive is not plugged in.")
         if not os.path.isdir(USB_DRV_PUBKEY_PATH):
             mkdir(USB_DRV_PUBKEY_PATH)
         if not os.path.isdir(USB_DRV_PUBKEY_PATH + alias):
             mkdir(USB_DRV_PUBKEY_PATH + alias)
-        print CRYPT_KEY_PUB_DIR + "/*"
-        print USB_DRV_PUBKEY_PATH + alias
+        self.log.debug(CRYPT_KEY_PUB_DIR + "/*")
+        self.log.debug(USB_DRV_PUBKEY_PATH + alias)
 
         try:
             cp('-R', CRYPT_KEY_PUB_DIR,USB_DRV_PUBKEY_PATH + alias)
             cp('-R', SIG_KEY_PUB_DIR,USB_DRV_PUBKEY_PATH + alias)
         except:
-            print "Failed to copy public keys."
+            self.log.warn("Failed to copy public keys.")
         try:
             self.unmount_usb_drv()
         except:
-            print "Drive not mounted or does not exist"
+            self.log.warn("Drive not mounted or does not exist")
 
     def mount_usb_drv(self):
         try:
             mount(USB_DRV_DEVICE_PATH, USB_DRV_PATH)
-        except:
-            print "Failed to mount, Drive mounted or does not exist"
+        except Exception, e:
+            self.log.error("Failed to mount, Drive mounted or does not exist", exc_info=True)
 
     def unmount_usb_drv(self):
         try:
             umount(USB_DRV_PATH)
-        except:
-            print "Failed to unmount. Drive not mounted?"
+        except Exception, e:
+            self.log.error("Failed to unmount. Drive not mounted?", exc_info=True)
 
     def prepare_usb_drv(self):      # Unmount / Format / Create Directory Structure
         self.unmount_usb_drv()
         try:
             mkfs_vfat(USB_DRV_DEVICE_PATH)
-        except:
-            print "Failed to Format, Drive mounted or does not exist."
+        except Exception, e:
+            self.log.error("Failed to Format, Drive mounted or does not exist.", exc_info=True)
         self.mount_usb_drv()
         if not os.path.isdir(USB_DRV_PUBKEY_PATH):
             mkdir(USB_DRV_PUBKEY_PATH)
         self.unmount_usb_drv()
 
     def wipe_all_data(self, alias):
-        print "Wiping Keys from System."
+        self.log.info( "Wiping Keys from System.")
         if os.path.isdir(KEYSET_ROOT_PATH):
             shutil.rmtree(KEYSET_ROOT_PATH)
         os.makedirs(KEYSET_ROOT_PATH)
@@ -113,15 +115,13 @@ class Crypto(object):
         self.config.save_config(True)
 
     def gen_keysets(self, keyset_password_crypt, keyset_password_sig, alias):
-        print "Generating new keyset"
+        self.log.info( "Generating new keyset")
         # ensure we're not stomping old keysets
         if os.path.isdir(KEYSET_ROOT_PATH + alias):
-            print "keyset directory(s) already exist. aborting to avoid stomping old keysets."
+            self.log.warn( "keyset directory(s) already exist. aborting to avoid stomping old keysets.")
             return False
         else:
-            print "Generating Keys with:"
-            print "Crypt Pass:", keyset_password_crypt
-            print "Sig Pass:", keyset_password_sig
+            self.log.debug( "Generating Keys with:")
             os.makedirs(KEYSET_ROOT_PATH + alias + '/' + CRYPT_KEY_DIR)
             os.makedirs(KEYSET_ROOT_PATH + alias + '/' + CRYPT_KEY_PUB_DIR)
             os.makedirs(KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_DIR)
@@ -152,7 +152,7 @@ class Crypto(object):
             kt.CmdPubKey(KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_DIR, KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_PUB_DIR, keyczar.KeyczarTool.PBE,
                          keyset_password_sig)
 
-            print "Keyset generation complete."
+            self.log.info( "Keyset generation complete.")
             return True
 
     def sign_msg(self, msg, alias):
@@ -160,25 +160,23 @@ class Crypto(object):
         signer = keyczar.Signer.Read(reader) # sender's private signing key
         signer.set_encoding(signer.NO_ENCODING)
         signature = signer.Sign(msg)
-        print "Signed Msg."
+        #print "Signed Msg."
         return signature
 
     def verify_msg(self, msg, signature, alias):
         try:
-            print "Verifying Sig...", alias
             verifier = keyczar.Verifier.Read(KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_PUB_DIR) # sender's public verifying key
             verifier.set_encoding(verifier.NO_ENCODING)
             verified = verifier.Verify(msg, signature)
             return verified
         except:
-            print "Sig failed to verify for ", alias
-            return null
+            return false
 
     def encrypt_msg(self, msg, alias):
         encrypter = keyczar.Encrypter.Read(KEYSET_ROOT_PATH + alias + '/' + CRYPT_KEY_PUB_DIR) # recipient's public encrypting key
         encrypter.set_encoding(encrypter.NO_ENCODING)
         encrypted_msg = encrypter.Encrypt(msg)
-        print "Encrypted Msg for ", alias
+        #print "Encrypted Msg for ", alias
         return encrypted_msg
 
     def decrypt_msg(self, encrypted_msg, alias):
@@ -191,32 +189,32 @@ class Crypto(object):
         return decrypted_msg
 
     def authenticate_user(self, keyset_password_crypt, keyset_password_sig,alias):
-        print "Authenticating ", alias
+        self.log.info("Authenticating " + alias)
         #print "With Passwords:"
         #print "Crypt Psw:", keyset_password_crypt
         #print "Sig Psw:", keyset_password_sig
         isReg = True
-        print KEYSET_ROOT_PATH + alias + '/'
+        self.log.debug( KEYSET_ROOT_PATH + alias + '/')
         if not os.path.isdir(KEYSET_ROOT_PATH + alias + '/'):
             #Node has not been configured (Factory State). Probably Temp. We will add a first time sequence
-            print "DSC Node has not been configured. This is where we generate keysets."
+            self.log.info( "DSC Node has not been configured. This is where we generate keysets.")
             return False
         try:
             reader_crypt = keyczar.KeysetPBEJSONFileReader(KEYSET_ROOT_PATH + alias + '/' + CRYPT_KEY_DIR, keyset_password_crypt)
             crypter = keyczar.Crypter.Read(reader_crypt)
             reader_sig = keyczar.KeysetPBEJSONFileReader(KEYSET_ROOT_PATH + alias + '/' + SIG_KEY_DIR, keyset_password_sig)
             signer = keyczar.Signer.Read(reader_sig)
-        except Exception as e:
-            print "Authentication Exception: ", e
+        except Exception, e:
+            self.log.error("Authentication Exception: ", exc_info=True)
             return False
         if crypter != None and signer != None: #and crypter_sig != None:
             self.keyset_password_crypt = keyset_password_crypt
             self.keyset_password_sig = keyset_password_sig
-            print "Authentication Success!"
+            self.log.info("Authentication Success!")
             return True
         else:
             #If we see a bad auth attempt, here is a spot to do something.
-            print "Authentication Fail!"
+            self.log.warn("Authentication Fail!")
             return False
 
 if __name__ == '__main__':

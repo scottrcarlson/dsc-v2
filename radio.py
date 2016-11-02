@@ -11,11 +11,21 @@ from threading import *
 import iodef
 from time import sleep
 import time
+import Queue
+import logging
+
 
 class Radio(Thread):
     def __init__(self,serial_device, config, message):
         Thread.__init__(self)
         self.event = Event()
+        self.log = logging.getLogger(self.__class__.__name__)
+        #handler = logging.StreamHandler()
+        #formatter = logging.Formatter(
+        #        '%(name)-12s| %(levelname)-8s| %(message)s')
+        #handler.setFormatter(formatter)
+        #self.log.addHandler(handler)
+        #self.log.setLevel(logging.DEBUG)
 
         self.serial_device = serial_device
         self.config = config
@@ -42,23 +52,17 @@ class Radio(Thread):
         self.mc = ModuleConnection(self.serial_device)
 
         self.reset_radio()
-        print "Radio Parameters:"
-        print self.mc.get_antenna()
-
         GPIO.add_event_detect(iodef.PIN_RADIO_IRQ, GPIO.RISING, callback=self.check_irq, bouncetime=100)
 
-        self.address = 0 #get rid of this
-        print "Initialized Radio Thread."
-
+        self.log.info('Initialized Radio Thread.')
+        self.log.debug("Radio Antenna Active:" + self.mc.get_antenna())
 
     def run(self):
         self.event.wait(1)
         last_checked_tdma = time.time()
         transmit_ok = False
         while not self.event.is_set():
-
             self.event.wait(0.05)
-
             if self.is_check_inbound and not transmit_ok:# and not is_check_outbound:
                 self.process_inbound_msg()
             elif transmit_ok and (time.time() - self.last_tx) > self.tx_throttle:
@@ -69,7 +73,6 @@ class Radio(Thread):
                 self.prev_total_sent = self.total_sent
                 self.prev_total_recv = self.total_recv
                 self.prev_total_exceptions = self.total_exceptions
-
                 #print "== Sent: [",self.total_sent,"]  Recvd:[",self.total_recv,"] Radio Exceptions:[",self.total_exceptions,"] =="
 
             if (time.time() - last_checked_tdma) > 0.5: #Check to see if our TDMA Slot is Active
@@ -81,26 +84,25 @@ class Radio(Thread):
                 slot_end = slot_start + self.tdma_slot_width
 
                 if (epoch > slot_start and epoch < (slot_end - self.config.tx_deadband)):
-                    #print "Radio Enable TX"
                     self.message.is_radio_tx = True
                     if not transmit_ok:
-                        print "== [TX] Sent: [",self.total_sent,"]  Recvd:[",self.total_recv,"] Radio Exceptions:[",self.total_exceptions,"] =="
+                        self.message.generate_beacon()
+                        self.log.debug("[TX mode] TDMA Slot Active")
+                        #print "[TX mode] Packets Sent/Recvd/Error: [",self.total_sent,"]/[",self.total_recv,"]/[",self.total_exceptions,"]"
                     transmit_ok = True
                 else:
-                    #print "Radio Disable TX"
                     self.message.is_radio_tx = False
                     if transmit_ok:
-                        print "== [RX] Sent: [",self.total_sent,"]  Recvd:[",self.total_recv,"] Radio Exceptions:[",self.total_exceptions,"] =="
+                        self.log.debug("[RX mode] Listening")
+                        #print "[RX mode] Packets Sent/Recvd/Error: [",self.total_sent,"]/[",self.total_recv,"]/[",self.total_exceptions,"]"
                     transmit_ok = False
 
-
-
     def stop(self):
-        print "Stopping Radio Thread."
+        self.log.debug("Stopping Radio Thread.")
         self.event.set()
 
-
     def signal_quality(self,rssi):
+        #Look at these ratings, are they reasonable?
         if rssi > -60:
                 quality = "GOOD"
         elif rssi > -75:
@@ -117,10 +119,12 @@ class Radio(Thread):
         global is_check_inbound
         try:
             received_data = self.mc._send_command(OPCODES['PKT_RECV_CONT'])
-            sleep(0.01)
+            #sleep(0.01)
+            self.event.wait(0.02)
         except Exception, e:
             if self.radio_verbose > 0:
-                print "EXCEPTION PKT_RECV_CONT: ", e
+                self.log.error("EXCEPTION PKT_RECV_CONT: ", exc_info=True)
+
         else:
             if len(received_data) > 0:
                 self.update_stats = True
@@ -130,13 +134,7 @@ class Radio(Thread):
                 (rssi, ) = struct.unpack_from('<h', bytes(received_data[:2]))
                 snr = received_data[2] / 4.0
 
-                self.message.radio_inbound_queue.put_nowait(msg)
-                if self.radio_verbose > 1:
-                    print "[START]--------------------------"
-                    print "RSSI:", rssi, "SnR:", snr
-                    print "Signal Quality:",signal_quality(rssi)
-                    print "Msg: ", msg
-                    print "----------------------------[END]"
+                self.message.radio_inbound_queue.put_nowait([msg,str(rssi)+'|'+str(snr)])
                 sleep(0.15)
 
         finally:
@@ -148,22 +146,29 @@ class Radio(Thread):
 
             except Exception, e:
                 if self.radio_verbose > 0:
-                    print "EXCEPTION: CLEAR_IRQ_FLAGS: ", e
+                    self.log.error( "EXCEPTION: CLEAR_IRQ_FLAGS: ", exc_info=True)
 
 
     def process_outbound_msg(self):
-        if self.message.is_msg_avail_to_repeat():
-            outbound_data = self.message.get_next_msg_for_repeat()
-            #print "Outbound Message Sending: " + outbound_data
-            #print len(outbound_data)
+        outbound_data = ''
+        try:
+            outbound_data = self.message.radio_beacon_queue.get_nowait()
+        except Queue.Empty:
+            try:
+                outbound_data = self.message.radio_outbound_queue.get_nowait()
+            except Queue.Empty:
+                pass
+        if outbound_data != '':
             self.is_check_outbound = True
             try:
                 r = self.mc._send_command(OPCODES['PKT_SEND_QUEUE'], outbound_data)
-                sleep(0.015)
+                #sleep(0.015)
+                sleep(0.025)
                 self.is_check_outbound = False
+
             except Exception, e:
                 if self.radio_verbose > 0:
-                    print "EXCEPTION PKT_SEND_QUEUE: ", e
+                    self.log.error("EXCEPTION PKT_SEND_QUEUE: ", exc_info=True)
                 self.total_exceptions += 1
                 self.is_check_outbound = False
                 self.reset_radio()
@@ -180,12 +185,11 @@ class Radio(Thread):
 
             except Exception, e:
                 if self.radio_verbose > 0:
-                    print "EXCEPTION GET_IRQ_FLAGS: ", e
+                    self.log.error("EXCEPTION GET_IRQ_FLAGS: ", exc_info=True)
                 self.total_exceptions += 1
 
             else:
-                if self.radio_verbose > 1:
-                    print "IRQ FIRED: ", irq_flags
+                #self.log.debug("IRQ FIRED: ", irq_flags)
 
                 if "RX_DONE" in irq_flags:
                     self.is_check_inbound = True
@@ -208,7 +212,7 @@ class Radio(Thread):
             self.mc.clear_irq_flags()
         except Exception, e:
             if self.radio_verbose > 0:
-                print "EXCEPTION: CLEAR_IRQ_FLAGS: ", e
+                self.log.error("EXCEPTION: CLEAR_IRQ_FLAGS: ", exc_info=True)
         self.ignore_radio_irq = False
 
     def set_radio_recv_mode(self):
@@ -217,14 +221,14 @@ class Radio(Thread):
             received_data = self.mc._send_command(OPCODES['PKT_RECV_CONT'])
         except Exception, e:
             if self.radio_verbose > 0:
-                print "EXCEPTION PKT_RECV_CONT: ", e
+                self.log.error("EXCEPTION PKT_RECV_CONT: ", exc_info=True)
         else:
-            if self.radio_verbose > 1:
-                print "Radio in Recv Mode"
+            pass
+            #self.log.debug("Radio in Recv Mode")
         sleep(0.01)
         try:
             self.mc.clear_irq_flags()
 
         except Exception, e:
             if self.radio_verbose > 0:
-                print "EXCEPTION: CLEAR_IRQ_FLAGS: ", e
+                self.log.error("EXCEPTION: CLEAR_IRQ_FLAGS: ", exc_info=True)

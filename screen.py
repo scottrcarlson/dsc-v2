@@ -61,20 +61,16 @@ factory_reset_menu = {
 
 
 compose_menu = {
-    0:"Choose:",
-    1:"---------------",
-    2:"Empty Msg",
+    0:"",
+    1:"------",
+    2:"yo",
     3:"Where are you?",
     4:"Where/When do you want to meet?",
     5:"I am ",
     6:"Meet you at ",
     7:"I'll be there in ",
-    8:"I'm hungry, anyone want to grab some food?",
+    8:"where",
     9:"Let's grab some beers",
-    10:"I'm at Bally/Paris",
-    11:"I'm in SkyTalks",
-    12:"I'm in 101 Presentation",
-    13:"I'm in hotel room, down time."
 }
 
 test_view_msg = {
@@ -102,4 +98,3 @@ test_view_msg = {
     21:"20160805 13:59",
     22:"Hello out there",
 }
-
