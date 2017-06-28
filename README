@@ -5,3 +5,225 @@ Dirt Simple Comms
 What Packages to Install, Hardware, Configuration etc..
 
 See also: https://bitbucket.org/dsc2/dsc2/wiki
+
+            <table>
+<thead>
+<tr>
+<th><img alt="Alt text" src="https://i.imgur.com/39TJbxX.jpg" title="Optional title" /></th>
+<th><img alt="Alt text" src="http://i.imgur.com/RaB0RYX.jpg" title="Optional title" /></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h1 id="markdown-header-table-of-contents">Table of Contents</h1>
+<div class="toc">
+<ul>
+<li><a href="#markdown-header-table-of-contents">Table of Contents</a></li>
+<li><a href="#markdown-header-goals">Goals</a></li>
+<li><a href="#markdown-header-basic-description-of-operation">Basic Description of Operation</a></li>
+<li><a href="#markdown-header-facts">Facts</a></li>
+<li><a href="#markdown-header-key-generation-management-and-exchange">Key Generation, Management and Exchange</a></li>
+<li><a href="#markdown-header-authentication-data-storage">Authentication / Data Storage</a></li>
+<li><a href="#markdown-header-protocol-details">Protocol Details</a><ul>
+<li><a href="#markdown-header-messages">Messages</a></li>
+<li><a href="#markdown-header-beacons">Beacons</a></li>
+</ul>
+</li>
+<li><a href="#markdown-header-future-work">Future Work</a></li>
+<li><a href="#markdown-header-external-documentation">External documentation</a></li>
+</ul>
+</div>
+<h1 id="markdown-header-goals">Goals</h1>
+<ul>
+<li>To not require existing infrastructure.</li>
+<li>To operate well and propagate messages in noisy RF environments.</li>
+<li>To securely exchange messages with friends in hostile RF environments. </li>
+<li>To avoid central points of control.</li>
+<li>To minimize the attack surface.</li>
+<li>To have secure defaults.</li>
+<li>To attain low cost, low power, and long range in urban environments.</li>
+<li>To have a small form factor.</li>
+</ul>
+<h1 id="markdown-header-basic-description-of-operation">Basic Description of Operation</h1>
+<p>A group of friends meet on location (camping, festivals, conferences, etc). Each person produces their DSCv2 module and generates two pairs of keys (encryption / signature keys) and exchanges their public keys physically (currently via USB).</p>
+<p>The network is manually configured for fixed/static Time Division Multiple Access (TDMA) media access.</p>
+<p>Now friends can freely exchange messages with each other. Every node acts as a repeater. Every message gets repeated by all nodes. It is a blind broadcast. There is no routing information or packet headers. All data is encrypted and then signed before transmission. The idea is for all messages to eventually get to where they are destined without sharing too much meta data. </p>
+<p>If Alice wants to send a message to Bob and they are not currently within range, other nodes that are may then receive the message, verify its signature and then begin repeating, eventually Bob receives his message.</p>
+<p>All nodes will periodically broadcast a beacon, which is comprised of a cleartext hash that
+is signed. </p>
+<p>Beacons Provide:</p>
+<ol>
+<li>Signature</li>
+<li>Repeat List Hash (Additional state info (EMPTY/QUIET)</li>
+<li>Stats (Last seen, Receive Signal Strength (RSSI) and Signal-to-Noise Ration (SNR)</li>
+</ol>
+<p>As the messages begin to pile up in each of the nodes repeat buffers, you can imagine the
+network becomes more lethargic. To mitigate this an additional piece of information is
+sent with the beacon. A hash of all messages in the repeat buffer.</p>
+<p>Each node tracks the last received beacon hash of its neighbors. If the hash is equal to
+the current node, then a confidence counter is incremented. If all neighbors have a high level
+of confidence (that everybody has everything), then the node will transition into a /quiet mode/.</p>
+<p>Quiet mode prevents any further transmission of messages. It also increases the frequency of
+beacon broadcasts. When in quiet mode, a special hash(quiet hash) is used. If a neighboring node
+receives this quiet hash it will force that node into quiet mode as well. Quiet mode should 
+propagate to all nodes. When all nodes exist the quiet mode period (typically 2 TDMA cycles),
+the network is reset with empty repeat buffers.</p>
+<p>Rinse, Repeat and Message.</p>
+<p>This system may shine at locations where there is no cellular service, or hostile actors 
+running rampant over the RF spectrum.</p>
+<h1 id="markdown-header-facts">Facts</h1>
+<ol>
+<li>A node can only know for certain that a message is/or is NOT for them. Not whom it is destined.</li>
+<li>A node can know the origination of a message (based on its signature)</li>
+<li>A node can NOT know if a specific message has arrived at its destination.</li>
+<li>A node can know if EVERYONE has EVERYTHING. (Hence knowing a message has arrived at its destination)</li>
+<li>A node will drop any packet that is not signed by its peers.</li>
+</ol>
+<h1 id="markdown-header-key-generation-management-and-exchange">Key Generation, Management and Exchange</h1>
+<p>Key Generation Process Consists:</p>
+<ol>
+<li>Create Keychains</li>
+<li>Generating Pub/Private Encryption Keys</li>
+<li>Generating Pub/Private Signature Keys</li>
+<li>Encrypt each keychain with a randomly generated passphrase</li>
+<li>Store passphrases on Yubikey/USB drive. Plans to move to U2F dongles, no static passwords!!</li>
+</ol>
+<h1 id="markdown-header-authentication-data-storage">Authentication / Data Storage</h1>
+<p>All data is encrypted on disk. Cleartext only resides in memory. To authenticate
+is to decrypt the node's keychain. This happens by plugging in the Yubikey device and long
+pressing the button (which feeds a passphrase). If the correct Yubikey is inserted, 
+the keychain unlocks, and the current message threads are decrypted and ready for viewing. 
+Once the key is removed, the screen locks, and memory is wiped. The system is now at rest. 
+It is unable to decrypt or sign messages. If physically stolen, no message data is available.</p>
+<h1 id="markdown-header-protocol-details">Protocol Details</h1>
+<p>Fixed TDMA is used for channel access. Each node needs to be manually configured ahead of time. The following settings are configurable:</p>
+<ol>
+<li>TDMA Slot Number</li>
+<li>Total Number of Nodes</li>
+<li>TX Time</li>
+<li>Deadband Time</li>
+</ol>
+<h2 id="markdown-header-messages">Messages</h2>
+<p>The cleartext maximum size is 150bytes TODO</p>
+<p>Encrypting and then signing the cleartext yields:</p>
+<table>
+<thead>
+<tr>
+<th>Ciphertext</th>
+<th>Signature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>261 bytes</td>
+<td>261 bytes</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>255 bytes due to PKCS11 padding and 2048 bit key</li>
+<li>6 bytes are overhead from Keyczar library implementation. TODO.</li>
+</ul>
+<p>The total data packet size 522 bytes exceeds max rf packet size of 255 bytes. </p>
+<p>We must split the packet into 3 segments, and send them OTA individually:</p>
+<table>
+<thead>
+<tr>
+<th>Ciphertext</th>
+<th>Signature</th>
+<th>-&gt;</th>
+<th>Seg1</th>
+<th>Seg2</th>
+<th>Seg3</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>261 bytes</td>
+<td>261 bytes</td>
+<td>-&gt;</td>
+<td>255 bytes</td>
+<td>255 bytes</td>
+<td>12 bytes</td>
+</tr>
+</tbody>
+</table>
+<p>The last 6 bytes of the cipher block get shifted into the beginning of the signature
+block, the last 12 bytes of the signature block shifts into the third segment.</p>
+<p>To help the packets get reassembled properly on the other end, the first 100 bytes 
+are copied from Seg1 and Seg2 and appended to the third segment. The third segment will 
+be called the fingerprint. TODO terminology.</p>
+<table>
+<thead>
+<tr>
+<th>Seg1</th>
+<th>Seg2</th>
+<th>Fingerprint</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>255 bytes</td>
+<td>255 bytes</td>
+<td>212 bytes</td>
+</tr>
+</tbody>
+</table>
+<p>Upon receiving each segment, the node will accumulate them into a temporary buffer that gets cleared periodically (to mitigate spam and orphan segments).</p>
+<p>To reassemble we look for segments that are 212 bytes, and then use the two 100 byte segments to search for the remaining sub-packets in the buffer.</p>
+<p>Once found and reassembled it removes the segments from the buffer and attempts to verify the signature of the complete packet.</p>
+<p>Once the packet signature has been verified, it is then added to the repeat buffer 
+to be re-transmitted to other nodes. If the node is /unlocked/ it will then attempt to
+decrypt the packet. Upon success it is then further processed for viewing/storage.</p>
+<p>Duplicate Segments and Messages are Dropped. Unsigned Packets get Dropped.</p>
+<p>Where the TDMA Slot Width = TX Time + Deadband Time</p>
+<h2 id="markdown-header-beacons">Beacons</h2>
+<p>Beacon messages will play a large role in the health of the network. By exchanging state
+information, each node can determine when all neighbors have all information. A beacon
+is sent at the beginning of a node's TDMA window.</p>
+<p>Beacon Message:</p>
+<table>
+<thead>
+<tr>
+<th>Hash</th>
+<th>Signature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>32 bytes</td>
+<td>261 bytes</td>
+</tr>
+</tbody>
+</table>
+<p>The repeat buffer of each node is hashed before transmitting the beacon. </p>
+<p>Each node tracks the state of its neighbors. When their hashes match a confidence counter increments. Once any single node has a high confidence count on every node, a consensus is made. (First to discover, Everyone has everything). The consensus triggers <em>quiet</em> mode. </p>
+<p><em>Quiet</em> mode prevents transmission of messages for a period of time. During this period of
+time it sends a beacon continuously within its TDMA slot.</p>
+<p>The beacon contains a <em>quiet</em> hash, telling the other nodes that it has decided that everyone has everything and therefore force peer nodes that receive this packet to also go into quiet mode. This mode propagates throughout the network, and at the end of quiet mode the repeat list is cleared, and the system starts fresh.</p>
+<p>TODO current issues. Race conditions etc</p>
+<h1 id="markdown-header-future-work">Future Work</h1>
+<ol>
+<li>How to mitigate the damage a compromised node can do to a network (spam/garbage with proper signature, breaking TDMA transmit etiquette)</li>
+<li>Re-think Keys / Key Exchange / Crypto. Try to make it simpler to use and to allow more features, such as forward secrecy, OTA key exchange, symmetric network session keys to allow for sending one to many without sending n-1 individually encrypted messages.</li>
+<li>Encrypt/Sign Beacons (Currently the beacon is cleartext + signature)</li>
+<li>Dynamic TDMA (Adding/Removing Nodes, optimizing slot cycles based on presence)</li>
+<li>Explore physical device hardening. (Tamper evident, Self Destruct, Proper Memory Handling, Trusted Computing)</li>
+<li>External IC for RNG</li>
+<li>Smaller form factor / better UX</li>
+<li>Replace static storage of keychain passphrase with decentralized U2F hardware key.</li>
+</ol>
+<h1 id="markdown-header-external-documentation">External documentation</h1>
+<ul>
+<li><a href="https://drive.google.com/file/d/0BzoAun5526HhcWlDdEJ5SmNwc0k/view?usp=sharing">DEF CON 24 2016 Demo Labs Handout</a></li>
+<li><a href="https://docs.google.com/presentation/d/1BU22bLMVu6hB2NO04vNjcmSjBuUO6rDLN74wpkgEphM/edit">Radio research</a></li>
+<li><a href="https://docs.google.com/spreadsheets/d/1iD3bOMqZKCQYCD7dJgXEDG-juE4myl73Pa8tYrNm_iQ/edit">Tasks, BOM</a></li>
+<li><a href="https://docs.google.com/document/d/16R9LuDv0LsWG09TqMHY2MBDf8Eit8pvc_psswv037z8/edit">HW/SW Component Diagrams</a></li>
+<li><a href="https://docs.google.com/document/d/1CCm--WU5d0TojT0b95wAke5KnvuqtFVSWwcs-sNXcJo/edit">HW Component Pinouts</a></li>
+<li><a href="https://docs.google.com/document/d/1IRM_NAHLdYB6WH230udhZGs3KYrlMKPnSV8AXAAnJ5w/edit">HMI Scenarios</a></li>
+</ul>
