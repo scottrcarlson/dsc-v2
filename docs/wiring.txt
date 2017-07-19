@@ -12,8 +12,8 @@ PIN 29 (I)  --> Key Left
 PIN 38 (I)  --> Key Right
 PIN 36 (I)  --> Key Enter
 PIN 35 (I)  --> Key Back
-PIN 8  (TX) --> Radio RX)
-PIN 10 (RX) --> Radio TX)
+PIN 8  (TX) --> Radio RX
+PIN 10 (RX) --> Radio TX
 PIN 3  (I2C SDA) --> SDA (OLED / RTC)
 PIN 5  (I2C SCL) --> SCL (OLED / RTC)
 PIN 1, 17 --> 3v3 (Used to Power Radio, OLED, Keypad and RTC)
@@ -56,9 +56,10 @@ PIN 25 (GND)   --> (Pi Zero GND)
 PIN 23 (RX)    --> (Pi Zero PIN 8)
 PIN 24 (TX)    --> (Pi Zero PIN 10)
 PIN 7  (Reset) --> (Pi Zero PIN 40)  
+PIN 8  (IRQ)   --> (Pi Zero PIN 7)  
 ---------------
 
 
 # Reference: Raspberry Pi Zero and LL-RXR-27 radio 
-Pinout Diagrams: https://docs.google.com/document/d/1CCm--WU$
+Pinout Diagrams: https://docs.google.com/document/d/1CCm--WU5d0TojT0b95wAke5KnvuqtFVSWwcs-sNXcJo/edit?usp=sharing
 
